@@ -1444,7 +1444,8 @@ export function SchedulingCheckoutModal() {
   // ✅ Calcular status da loja
   // 🔑 IMPORTANTE: allowSchedulingOutsideBusinessHours permite agendamentos mesmo com loja fechada
   const storeOpen = isStoreOpen();
-  const isStoreClosed = !settings.isManuallyOpen || (!storeOpen && !settings.allowSchedulingOutsideBusinessHours);
+  // ✅ BLOQUEANTE SOMENTE se: (loja fechada) E (agendamento NÃO permitido quando fechada)
+  const isStoreClosed = (!settings.isManuallyOpen || !storeOpen) && !settings.allowSchedulingOutsideBusinessHours;
 
   // 🔒 BLOQUEIO CRÍTICO: Se loja fechada, mostrar estado bloqueado
   useEffect(() => {
