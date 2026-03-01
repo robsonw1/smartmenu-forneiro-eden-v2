@@ -229,8 +229,15 @@ export const useSettingsStore = create<SettingsStore>()(
   isStoreOpen: () => {
     const { settings } = get();
     
+    // ✅ If manually opened (admin clicked "ABERTO AGORA"), store is ALWAYS open regardless of schedule
+    if (settings.isManuallyOpen === true) {
+      console.log('✅ LOJA ABERTA MANUALMENTE - isManuallyOpen é TRUE');
+      return true;
+    }
+    
     // If manually closed, store is closed
     if (!settings.isManuallyOpen) {
+      console.log('❌ LOJA FECHADA - isManuallyOpen é FALSE');
       return false;
     }
 
@@ -240,6 +247,7 @@ export const useSettingsStore = create<SettingsStore>()(
 
     // Se não tem schedule ou não tá aberto, retorna false
     if (!daySchedule || !daySchedule.isOpen || !daySchedule.openTime || !daySchedule.closeTime) {
+      console.log('❌ LOJA FECHADA - schedule não configurado para hoje');
       return false;
     }
 
@@ -259,10 +267,14 @@ export const useSettingsStore = create<SettingsStore>()(
       if (closeTime <= openTime) {
         closeTime += 24 * 60; // Add 24 hours
         const adjustedCurrentTime = currentTime < openTime ? currentTime + 24 * 60 : currentTime;
-        return adjustedCurrentTime >= openTime && adjustedCurrentTime < closeTime;
+        const isOpen = adjustedCurrentTime >= openTime && adjustedCurrentTime < closeTime;
+        console.log(isOpen ? '✅ LOJA ABERTA - dentro do horário' : '❌ LOJA FECHADA - fora do horário');
+        return isOpen;
       }
 
-      return currentTime >= openTime && currentTime < closeTime;
+      const isOpen = currentTime >= openTime && currentTime < closeTime;
+      console.log(isOpen ? '✅ LOJA ABERTA - dentro do horário' : '❌ LOJA FECHADA - fora do horário');
+      return isOpen;
     } catch (error) {
       console.error('Erro ao calcular horário de funcionamento:', error);
       return false;
