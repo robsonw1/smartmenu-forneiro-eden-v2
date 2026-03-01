@@ -51,13 +51,11 @@ export function SchedulingSettings({ onScheduleChange, onManualOpenToggle }: Sch
     setHasChanges(false);
   }, [settings]);
 
-  // 🔑 RECUPERAR TENANT ID
   useEffect(() => {
     const storedTenantId = sessionStorage.getItem('oauth_tenant_id');
     if (storedTenantId) {
       setTenantId(storedTenantId);
     } else {
-      // Fallback: tentar buscar do banco
       const fetchTenantId = async () => {
         try {
           const { data } = await (supabase as any)
@@ -91,7 +89,6 @@ export function SchedulingSettings({ onScheduleChange, onManualOpenToggle }: Sch
     try {
       setIsSaving(true);
 
-      // Validations
       if (form.minScheduleMinutes < 0) {
         toast.error('Tempo mínimo não pode ser negativo');
         return;
@@ -129,7 +126,6 @@ export function SchedulingSettings({ onScheduleChange, onManualOpenToggle }: Sch
 
   return (
     <div style={{ backgroundColor: '#FFFFFF', color: '#111827', padding: '24px' }} className="space-y-6">
-      {/* Header */}
       <div className="flex items-center gap-2">
         <Clock style={{ color: '#16a34a' }} className="w-6 h-6" />
         <div>
@@ -138,7 +134,6 @@ export function SchedulingSettings({ onScheduleChange, onManualOpenToggle }: Sch
         </div>
       </div>
 
-      {/* Main Toggle Card */}
       <Card style={{ backgroundColor: '#FFFFFF', borderColor: '#dcfce7', borderWidth: '2px' }}>
         <CardContent className="pt-6">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px', backgroundColor: '#f0fdf4', borderRadius: '12px', borderColor: '#bbf7d0', borderWidth: '2px' }}>
@@ -159,10 +154,8 @@ export function SchedulingSettings({ onScheduleChange, onManualOpenToggle }: Sch
         </CardContent>
       </Card>
 
-      {/* If Enabled - Show Management Interface */}
       {form.enableScheduling && (
         <>
-          {/* Quick Actions Card */}
           <Card style={{ backgroundColor: '#FFFFFF', borderColor: '#bfdbfe' }}>
             <CardHeader style={{ backgroundColor: '#eff6ff', borderBottomColor: '#bfdbfe', borderBottomWidth: '1px' }}>
               <CardTitle style={{ color: '#1e40af', fontSize: '18px' }}>Gerenciar Horários Disponíveis</CardTitle>
@@ -186,14 +179,12 @@ export function SchedulingSettings({ onScheduleChange, onManualOpenToggle }: Sch
             </CardContent>
           </Card>
 
-          {/* Settings Grid */}
           <Card style={{ backgroundColor: '#FFFFFF', borderColor: '#fce7f3' }}>
             <CardHeader style={{ backgroundColor: '#fdf2f8', borderBottomColor: '#fce7f3', borderBottomWidth: '1px' }}>
               <CardTitle style={{ color: '#be185d', fontSize: '18px' }}>Configuração Rápida</CardTitle>
               <CardDescription style={{ color: '#831843' }}>Configure o tempo de antecedência e dias para agendar</CardDescription>
             </CardHeader>
             <CardContent className="pt-6 space-y-6">
-              {/* Min Schedule Minutes */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label style={{ fontWeight: '600', color: '#000000', fontSize: '15px' }}>
@@ -228,7 +219,6 @@ export function SchedulingSettings({ onScheduleChange, onManualOpenToggle }: Sch
 
               <div style={{ height: '1px', backgroundColor: '#e5e7eb' }} />
 
-              {/* Max Schedule Days */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label style={{ fontWeight: '600', color: '#000000', fontSize: '15px' }}>
@@ -258,7 +248,6 @@ export function SchedulingSettings({ onScheduleChange, onManualOpenToggle }: Sch
 
               <div style={{ height: '1px', backgroundColor: '#e5e7eb' }} />
 
-              {/* Allow Scheduling Outside Business Hours - MAIN TOGGLE */}
               <div className="space-y-3">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', backgroundColor: '#fef3c7', borderRadius: '8px', borderColor: '#fcd34d', borderWidth: '2px' }}>
                   <div className="space-y-1 flex-1">
@@ -287,7 +276,6 @@ export function SchedulingSettings({ onScheduleChange, onManualOpenToggle }: Sch
             </CardContent>
           </Card>
 
-          {/* Info Card */}
           <div style={{ padding: '16px', backgroundColor: '#dbeafe', borderRadius: '8px', borderColor: '#bfdbfe', borderWidth: '1px', color: '#111827' }}>
             <p style={{ fontSize: '14px', fontWeight: '500', lineHeight: '1.6' }}>
               <strong>💡 Dicas para Configuração:</strong>
@@ -304,7 +292,6 @@ export function SchedulingSettings({ onScheduleChange, onManualOpenToggle }: Sch
         </>
       )}
 
-      {/* If Disabled - Show Info */}
       {!form.enableScheduling && (
         <div style={{ padding: '20px', backgroundColor: '#f3f4f6', borderRadius: '8px', borderColor: '#d1d5db', borderWidth: '1px', textAlign: 'center' }}>
           <p style={{ fontWeight: '500', color: '#374151', fontSize: '15px' }}>
@@ -313,7 +300,6 @@ export function SchedulingSettings({ onScheduleChange, onManualOpenToggle }: Sch
         </div>
       )}
 
-      {/* Save Button */}
       <div className="flex gap-3 pt-2">
         <Button
           onClick={handleSave}
@@ -337,7 +323,6 @@ export function SchedulingSettings({ onScheduleChange, onManualOpenToggle }: Sch
         )}
       </div>
 
-      {/* Dialog de Gerenciamento de Slots */}
       <SchedulingSlotManagementDialog
         open={showSlotsDialog}
         onOpenChange={setShowSlotsDialog}
