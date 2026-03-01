@@ -1877,7 +1877,7 @@ export function SchedulingCheckoutModal() {
                           minDate={minDate}
                           maxDate={maxDate}
                           weekSchedule={settings.schedule}
-                          respectBusinessHours={settings.respectBusinessHoursForScheduling}
+                          respectBusinessHours={!settings.allowSchedulingOutsideBusinessHours && settings.respectBusinessHoursForScheduling}
                         />
                       </>
                     )}
