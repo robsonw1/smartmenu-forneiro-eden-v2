@@ -5,13 +5,16 @@ import { supabase } from '@/integrations/supabase/client';
 /**
  * Hook que sincroniza as configurações em tempo real do Supabase
  * SINCRONIZA: isManuallyOpen (CRÍTICO), schedule, timing, etc
+ * TAMBÉM: Recalcula isStoreOpen() a cada minuto para detectar mudanças de horário
  */
 export function useSettingsRealtimeSync() {
   const updateSettings = useSettingsStore((s) => s.updateSettings);
+  const settings = useSettingsStore((s) => s.settings);
 
   useEffect(() => {
     let isSubscribed = true;
     let channel: any = null;
+    let timeCheckInterval: NodeJS.Timeout | null = null;
 
     const setupRealtimeSync = async () => {
       try {
@@ -131,10 +134,24 @@ export function useSettingsRealtimeSync() {
         }
       });
 
+    // ⏰ VERIFICAÇÃO A CADA MINUTO: Recalcular isStoreOpen() para detectar mudanças de horário
+    // Isso garante que quando o horário mudar (ex: 23:59 → 00:00), o cliente recebe feedback
+    timeCheckInterval = setInterval(() => {
+      if (isSubscribed) {
+        // Forçar re-render do Zustand Store para recalcular isStoreOpen()
+        // Isso desencadeia componentes que dependem de isStoreOpen()
+        console.log('⏰ [TIME-CHECK] Recalculando isStoreOpen() (verificação a cada minuto)');
+        updateSettings(settings); // Força re-render sin cambiar dados
+      }
+    }, 60000); // 60 segundos = 1 minuto
+
     return () => {
       isSubscribed = false;
       if (channel) {
         supabase.removeChannel(channel);
+      }
+      if (timeCheckInterval) {
+        clearInterval(timeCheckInterval);
       }
     };
   }, []);
