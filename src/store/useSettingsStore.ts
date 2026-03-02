@@ -229,18 +229,20 @@ export const useSettingsStore = create<SettingsStore>()(
   isStoreOpen: () => {
     const { settings } = get();
     
-    // ✅ If manually opened (admin clicked "ABERTO AGORA"), store is ALWAYS open regardless of schedule
-    if (settings.isManuallyOpen === true) {
-      console.log('✅ LOJA ABERTA MANUALMENTE - isManuallyOpen é TRUE');
-      return true;
-    }
-    
     // If manually closed, store is closed
     if (!settings.isManuallyOpen) {
       console.log('❌ LOJA FECHADA - isManuallyOpen é FALSE');
       return false;
     }
 
+    // ✅ If manually opened AND allowSchedulingOutsideBusinessHours is TRUE → ALWAYS OPEN
+    if (settings.isManuallyOpen === true && settings.allowSchedulingOutsideBusinessHours === true) {
+      console.log('✅ LOJA ABERTA MANUALMENTE + AGENDAMENTO FORA DO HORÁRIO PERMITIDO - Ignora horário');
+      return true;
+    }
+
+    // ✅ If manually opened BUT allowSchedulingOutsideBusinessHours is FALSE → CHECK SCHEDULE
+    // This means: respect the configured schedule even when manually opened
     const now = new Date();
     const currentDay = dayNames[now.getDay()];
     const daySchedule = settings.schedule[currentDay];
