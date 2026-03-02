@@ -572,14 +572,9 @@ export function SchedulingCheckoutModal() {
   };
 
   const nextStep = () => {
-    // 🔒 BLOQUEIO: Verificar se é realmente bloqueante (não permite agendamento quando fechada)
-    // Se allowSchedulingOutsideBusinessHours está ATIVADO, permite prosseguir mesmo com loja fechada
-    if (!settings.isManuallyOpen && !settings.allowSchedulingOutsideBusinessHours) {
-      toast.error('🔒 Estabelecimento fechado. Agendamentos não permitidos.');
-      return;
-    }
-    if (!storeOpen && !settings.allowSchedulingOutsideBusinessHours) {
-      toast.error('⏰ Estabelecimento fora do horário. Agendamentos não permitidos.');
+    // 🔒 BLOQUEIO: Horários configurados no admin SEMPRE são respeitados
+    if (!storeOpen) {
+      toast.error('⏰ Estabelecimento fora do horário de funcionamento. Agendamentos não permitidos.');
       return;
     }
     
@@ -1016,11 +1011,11 @@ export function SchedulingCheckoutModal() {
       return;
     }
 
-    // 🚫 PROTEÇÃO CRÍTICA #2: Se loja está FORA DO HORÁRIO, BLOQUEIA SOMENTE se não permite agendamentos
+    // 🚫 PROTEÇÃO CRÍTICA #2: Horários configurados no admin SEMPRE são respeitados
     const currentStoreOpen = isStoreOpen();
-    if (!currentStoreOpen && !settings.allowSchedulingOutsideBusinessHours) {
-      console.error('🚫 [SCHEDULING] BLOQUEIO: Fora do horário E allowSchedulingOutsideBusinessHours = false');
-      toast.error('⏰ Estabelecimento fora do horário. Agendamento não permitido.');
+    if (!currentStoreOpen) {
+      console.error('🚫 [SCHEDULING] BLOQUEIO: Estabelecimento fora do horário configurado');
+      toast.error('⏰ Estabelecimento fora do horário de funcionamento. Agendamento não permitido.');
       return;
     }
 
