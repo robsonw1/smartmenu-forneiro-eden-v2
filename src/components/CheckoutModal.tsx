@@ -143,15 +143,37 @@ export function CheckoutModal() {
   // ⚡ REALTIME: Sincronizar configurações do admin em tempo real (schedule, horários, etc)
   useSettingsRealtimeSync();
 
-  // ⏰ REATIVO: Recalcular storeOpen sempre que settings mudam
+  // ⏰ REATIVO ROBUSTO: Recalcular storeOpen quando settings mudam + intervalo de 30s
   useEffect(() => {
-    const newStoreStatus = isStoreOpen();
-    setStoreOpen(newStoreStatus);
-    console.log('🔄 [CHECKOUT] storeOpen recalculado:', newStoreStatus, 'Settings:', {
-      isManuallyOpen: settings.isManuallyOpen,
-      currentDay: new Date().toLocaleDateString('pt-BR', { weekday: 'long' }),
-    });
-  }, [settings, isStoreOpen]);
+    // Função para recalcular status
+    const recalculateStoreOpen = () => {
+      const newStoreStatus = isStoreOpen();
+      setStoreOpen(newStoreStatus);
+      console.log('🔄 [CHECKOUT] storeOpen recalculado:', newStoreStatus, 'Horário:', {
+        hora: new Date().toLocaleTimeString('pt-BR'),
+        dia: new Date().toLocaleDateString('pt-BR', { weekday: 'long' }),
+        isManuallyOpen: settings.isManuallyOpen,
+      });
+    };
+
+    // 1️⃣ Recalcular imediatamente quando checkout abre
+    recalculateStoreOpen();
+
+    // 2️⃣ Se inscrever nas mudanças de settings via Zustand
+    const unsubscribe = useSettingsStore.subscribe(
+      () => recalculateStoreOpen()
+    );
+
+    // 3️⃣ Verificar a cada 30 segundos (independente de mudanças)
+    const interval = setInterval(() => {
+      recalculateStoreOpen();
+    }, 30000); // 30 segundos
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
+  }, [isCheckoutOpen]); // Só depende de isCheckoutOpen
 
   // ✅ Função para formatar telefone
   const formatPhoneNumber = (phone: string): string => {
