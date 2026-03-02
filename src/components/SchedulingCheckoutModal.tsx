@@ -26,6 +26,7 @@ import { useCouponManagementStore } from '@/store/useCouponManagementStore';
 import { useOrderCancellationSync } from '@/hooks/use-order-cancellation-sync';
 import { useSchedulingCancellationSync } from '@/hooks/use-scheduling-availability';
 import { useStoreStatusRealtime } from '@/hooks/use-store-status-realtime';
+import { useSettingsRealtimeSync } from '@/hooks/use-settings-realtime-sync';
 import { SchedulingSlotSelector } from './SchedulingSlotSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { sendOrderSummaryToWhatsApp } from '@/lib/whatsapp-notification';
@@ -161,6 +162,9 @@ export function SchedulingCheckoutModal() {
 
   // ⚡ REALTIME: Monitorar status da loja em tempo real (abrir/fechar + horários)
   useStoreStatusRealtime(isSchedulingCheckoutOpen);
+
+  // ⚡ REALTIME: Sincronizar configurações do admin em tempo real (schedule, horários, etc)
+  useSettingsRealtimeSync();
 
   // ✅ Função para formatar telefone
   const formatPhoneNumber = (phone: string): string => {
