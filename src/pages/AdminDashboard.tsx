@@ -541,19 +541,26 @@ const AdminDashboard = () => {
   }, [orders, dateRange, orderStatusFilter, orderSort]);
 
   const handleSaveSettings = async () => {
-    // ✅ CRÍTICO: Garantir que schedule está incluído
-    console.log('💾 [ADMIN] Salvando configurações COMPLETAS:', {
-      phone: settingsForm.phone,
-      sendOrderSummaryToWhatsApp: settingsForm.sendOrderSummaryToWhatsApp,
-      schedule: settingsForm.schedule, // VERIFICAR SE SCHEDULE ESTÁ AQUI
+    // ✅ CRÍTICO: Forçar sincronização do settingsForm com settings ATUAL do store
+    // Isso garante que qualquer alteração de schedule feita via updateDaySchedule seja incluída
+    const currentSettings = useSettingsStore.getState().settings;
+    const finalSettingsToSave = {
+      ...settingsForm,
+      schedule: currentSettings.schedule, // SEMPRE use o schedule ATUAL do store
+    };
+    
+    console.log('💾 [ADMIN] Salvando configurações FINAIS:', {
+      phone: finalSettingsToSave.phone,
+      sendOrderSummaryToWhatsApp: finalSettingsToSave.sendOrderSummaryToWhatsApp,
+      schedule: finalSettingsToSave.schedule, // VERIFICAR SE SCHEDULE ESTÁ AQUI
     });
     
-    // Atualizar com TODOS os settings (incluindo schedule)
-    await updateSettings(settingsForm);
+    // Atualizar com TODOS os settings (incluindo schedule ATUALIZADO)
+    await updateSettings(finalSettingsToSave);
     
     // Force settings refresh in CheckoutModal
     localStorage.setItem('settings-updated', Date.now().toString());
-    console.log('✅ [ADMIN] Configurações COMPLETAS salvas:', settingsForm.schedule);
+    console.log('✅ [ADMIN] Configurações FINAIS salvas:', finalSettingsToSave.schedule);
     
     toast.success('Configurações salvas com sucesso!');
   };
