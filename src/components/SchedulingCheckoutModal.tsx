@@ -135,6 +135,7 @@ export function SchedulingCheckoutModal() {
   const [appliedCoupon, setAppliedCoupon] = useState<string>('');
   const [couponValidationMessage, setCouponValidationMessage] = useState<string>('');
   const [tenantId, setTenantId] = useState<string>('');
+  const [storeOpen, setStoreOpen] = useState<boolean>(false);
 
   const validateAndUseCoupon = useCouponManagementStore((s) => s.validateAndUseCoupon);
   const markCouponAsUsed = useCouponManagementStore((s) => s.markCouponAsUsed);
@@ -165,6 +166,16 @@ export function SchedulingCheckoutModal() {
 
   // ⚡ REALTIME: Sincronizar configurações do admin em tempo real (schedule, horários, etc)
   useSettingsRealtimeSync();
+
+  // ⏰ REATIVO: Recalcular storeOpen sempre que settings mudam
+  useEffect(() => {
+    const newStoreStatus = isStoreOpen();
+    setStoreOpen(newStoreStatus);
+    console.log('🔄 [SCHEDULING-CHECKOUT] storeOpen recalculado:', newStoreStatus, 'Settings:', {
+      isManuallyOpen: settings.isManuallyOpen,
+      currentDay: new Date().toLocaleDateString('pt-BR', { weekday: 'long' }),
+    });
+  }, [settings, isStoreOpen]);
 
   // ✅ Função para formatar telefone
   const formatPhoneNumber = (phone: string): string => {
@@ -1443,10 +1454,9 @@ export function SchedulingCheckoutModal() {
   const maxDate = new Date(Date.now() + maxScheduleDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
   // ✅ Calcular status da loja
-  // 🔑 IMPORTANTE: allowSchedulingOutsideBusinessHours permite agendamentos mesmo com loja fechada
-  const storeOpen = isStoreOpen();
-  // ✅ BLOQUEANTE SOMENTE se: (loja fechada) E (agendamento NÃO permitido quando fechada)
-  const isStoreClosed = (!settings.isManuallyOpen || !storeOpen) && !settings.allowSchedulingOutsideBusinessHours;
+  // 🔑 Usar estado reativo de storeOpen que é atualizado quando settings mudam
+  // Se !storeOpen, significa que está fora do horário configurado
+  const isStoreClosed = !settings.isManuallyOpen || !storeOpen;
 
   // 🔒 BLOQUEIO CRÍTICO: Se loja fechada (e agendamentos NÃO permitidos), mostrar aviso uma vez
   useEffect(() => {
