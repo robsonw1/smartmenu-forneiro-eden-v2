@@ -559,11 +559,7 @@ export function CheckoutModal() {
   };
 
   const nextStep = () => {
-    // 🔒 BLOQUEIO: Se loja está fechada, NÃO permite avançar para próximos passos
-    if (!storeOpen || !settings.isManuallyOpen) {
-      toast.error(!settings.isManuallyOpen ? '🔒 Estabelecimento fechado manualmente. Não é possível fazer pedidos.' : '⏰ Estabelecimento fora do horário. Não é possível fazer pedidos.');
-      return;
-    }
+    // Horário de funcionamento removido - permitir pedidos em qualquer horário
     
     const baseSteps: Step[] = ['contact', 'delivery', 'address', 'payment'];
     
