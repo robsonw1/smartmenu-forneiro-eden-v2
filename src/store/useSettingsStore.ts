@@ -236,6 +236,11 @@ export const useSettingsStore = create<SettingsStore>()(
   isStoreOpen: () => {
     const { settings } = get();
     
+    console.log('🔍 [IS-STORE-OPEN] Verificando status...', {
+      isManuallyOpen: settings.isManuallyOpen,
+      settings: settings,
+    });
+    
     // ❌ Se manual close button foi clicado: SEMPRE fechado (sem exceções)
     if (settings.isManuallyOpen === false) {
       console.log('❌ LOJA FECHADA - Botão manual FECHADO pelo gerente');
@@ -248,16 +253,20 @@ export const useSettingsStore = create<SettingsStore>()(
     
     const now = new Date();
     const currentDay = dayNames[now.getDay()];
-    const daySchedule = settings.schedule[currentDay];
+    
+    console.log('🔍 [IS-STORE-OPEN] Dia atual:', currentDay, 'Schedule completo:', settings.schedule);
+    
+    const daySchedule = settings.schedule ? settings.schedule[currentDay] : null;
 
-    // Se não tem schedule configurado para hoje ou tá marcado como fechado
+    // Se não tem schedule configurado para hoje
     if (!daySchedule) {
       console.log('❌ LOJA FECHADA - Dia não encontrado no schedule');
       return false;
     }
 
-    if (!daySchedule.isOpen) {
-      console.log('❌ LOJA FECHADA - Dia marcado como FECHADO no schedule');
+    // ⚠️ CRÍTICO: Verificar se o dia está marcado como FECHADO
+    if (daySchedule.isOpen === false) {
+      console.log('❌ LOJA FECHADA - Dia é', currentDay, '- marcado como FECHADO no schedule');
       return false;
     }
 
