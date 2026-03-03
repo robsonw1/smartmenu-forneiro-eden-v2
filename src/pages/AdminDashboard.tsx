@@ -541,26 +541,34 @@ const AdminDashboard = () => {
   }, [orders, dateRange, orderStatusFilter, orderSort]);
 
   const handleSaveSettings = async () => {
-    // ✅ CRÍTICO: Forçar sincronização do settingsForm com settings ATUAL do store
-    // Isso garante que qualquer alteração de schedule feita via updateDaySchedule seja incluída
-    const currentSettings = useSettingsStore.getState().settings;
+    // ✅ CRÍTICO: Usar o settingsForm (que tem as edições locais do admin)
+    // E garantir que o schedule SEMPRE tem todos os 7 dias
     const finalSettingsToSave = {
       ...settingsForm,
-      schedule: currentSettings.schedule, // SEMPRE use o schedule ATUAL do store
+      // ✅ SEMPRE validar que schedule tem todos os 7 dias
+      schedule: settingsForm.schedule || {
+        monday: { isOpen: false, openTime: '18:00', closeTime: '23:00' },
+        tuesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+        wednesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+        thursday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+        friday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+        saturday: { isOpen: true, openTime: '17:00', closeTime: '00:00' },
+        sunday: { isOpen: true, openTime: '17:00', closeTime: '23:00' },
+      },
     };
     
-    console.log('💾 [ADMIN] Salvando configurações FINAIS:', {
+    console.log('💾 [ADMIN] Salvando configurações FINAIS com schedule COMPLETO:', {
       phone: finalSettingsToSave.phone,
       sendOrderSummaryToWhatsApp: finalSettingsToSave.sendOrderSummaryToWhatsApp,
-      schedule: finalSettingsToSave.schedule, // VERIFICAR SE SCHEDULE ESTÁ AQUI
+      scheduleCompleto: finalSettingsToSave.schedule,
     });
     
-    // Atualizar com TODOS os settings (incluindo schedule ATUALIZADO)
+    // Atualizar com TODOS os settings (incluindo schedule COMPLETO)
     await updateSettings(finalSettingsToSave);
     
     // Force settings refresh in CheckoutModal
     localStorage.setItem('settings-updated', Date.now().toString());
-    console.log('✅ [ADMIN] Configurações FINAIS salvas:', finalSettingsToSave.schedule);
+    console.log('✅ [ADMIN] Configurações FINAIS salvas com schedule COMPLETO:', finalSettingsToSave.schedule);
     
     toast.success('Configurações salvas com sucesso!');
   };
