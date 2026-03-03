@@ -1552,67 +1552,7 @@ export function SchedulingCheckoutModal() {
               </DialogTitle>
             </DialogHeader>
 
-            {/* ⚠️ STORE CLOSED CRITICAL BANNER - BLOQUEANTE */}
-            {isStoreClosed && step !== 'confirmation' && (
-              <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center pointer-events-none">
-                <div className="bg-red-600 text-white p-8 rounded-xl text-center max-w-md shadow-2xl">
-                  <div className="text-5xl mb-4">🔓</div>
-                  <h3 className="text-2xl font-bold mb-2">
-                    {!settings.isManuallyOpen ? 'ESTABELECIMENTO FECHADO' : 'HORÁRIO NÃO PERMITIDO'}
-                  </h3>
-                  <p className="text-base font-semibold">
-                    {!settings.isManuallyOpen 
-                      ? 'Não é possível agendar no momento' 
-                      : 'Loja está fora do horário'}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Store Closed Alert */}
-            {isStoreClosed && step !== 'confirmation' && (
-              <Alert variant="destructive" className="mt-4 border-2 border-red-600">
-                <AlertCircle className="h-5 w-5" />
-                <AlertDescription className="font-bold text-base">
-                  <strong>{!settings.isManuallyOpen ? '🔒 ESTABELECIMENTO FECHADO MANUALMENTE' : '⏰ FORA DO HORÁRIO DE FUNCIONAMENTO'}</strong> 
-                  <br />
-                  Não é possível fazer agendamentos no momento. Por favor, consulte nosso horário de funcionamento.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* 🔒 IF STORE IS CLOSED - RENDER DISABLED OVERLAY */}
-            {isStoreClosed && step !== 'confirmation' && (
-              <div className="mt-6 p-6 bg-red-50 border-2 border-red-300 rounded-lg">
-                <div className="flex items-center gap-4 text-red-700">
-                  <div className="text-4xl">🚫</div>
-                  <div>
-                    <p className="font-bold text-lg">Acesso bloqueado</p>
-                    <p className="text-sm">A loja não está funcionando agora. Volte mais tarde para agendar seu pedido.</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Store Closed Alert - LEGACY */}
-            {shouldShowStoreClosedAlert && !isStoreClosed && (
-              <Alert variant="destructive" className="mt-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  <strong>{!settings.isManuallyOpen ? '🔒 Estabelecimento Fechado Manualmente.' : '⏰ Fora do Horário de Funcionamento.'}</strong> {!settings.isManuallyOpen ? 'Não é possível fazer pedidos no momento.' : 'Agendamento fora do horário não está permitido.'}
-                  Consulte nosso horário de funcionamento.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {(!storeOpen || !settings.isManuallyOpen) && step !== 'confirmation' && settings.allowSchedulingOutsideBusinessHours && (
-              <Alert className="mt-4" style={{ backgroundColor: '#fef08a', borderColor: '#facc15', color: '#92400e' }}>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  <strong>✅ Loja fechada,</strong> mas você pode agendar um pedido para quando abrir!
-                </AlertDescription>
-              </Alert>
-            )}
+            {/* Store hours validation removed - customers can order anytime */}
 
             {/* Progress Steps */}
             {!['confirmation', 'pix'].includes(step) && (
