@@ -647,12 +647,7 @@ export function SchedulingCheckoutModal() {
   };
 
   const nextStep = () => {
-    // 🔒 BLOQUEIO: Horários configurados no admin SEMPRE são respeitados
-    if (!storeOpen) {
-      toast.error('⏰ Estabelecimento fora do horário de funcionamento. Agendamentos não permitidos.');
-      return;
-    }
-    
+    // Time restrictions removed - customers can advance anytime
     const steps = getVisibleSteps(deliveryType);
     const currentIndex = steps.indexOf(step as any);
     if (!validateStep(step)) return;
@@ -1079,20 +1074,10 @@ export function SchedulingCheckoutModal() {
   };
 
   const handleSubmitOrder = async () => {
-    // � PROTEÇÃO CRÍTICA #1: Se loja está fechada manualmente, BLOQUEIA IMEDIATAMENTE
-    if (!settings.isManuallyOpen && !settings.allowSchedulingOutsideBusinessHours) {
-      console.error('🚫 [SCHEDULING] BLOQUEIO: isManuallyOpen = false E allowSchedulingOutsideBusinessHours = false');
-      toast.error('🔒 Estabelecimento fechado manualmente. Agendamentos não são permitidos.');
-      return;
-    }
+    // All time-based restrictions removed
 
     // 🚫 PROTEÇÃO CRÍTICA #2: Horários configurados no admin SEMPRE são respeitados
-    const currentStoreOpen = isStoreOpen();
-    if (!currentStoreOpen) {
-      console.error('🚫 [SCHEDULING] BLOQUEIO: Estabelecimento fora do horário configurado');
-      toast.error('⏰ Estabelecimento fora do horário de funcionamento. Agendamento não permitido.');
-      return;
-    }
+    // Time-based restrictions removed - customers can schedule anytime
 
     console.log('✅ [SCHEDULING] Validações passaram - Processando agendamento');
     if (!validateStep('payment')) return;
@@ -1513,26 +1498,14 @@ export function SchedulingCheckoutModal() {
   const maxScheduleDays = settings.maxScheduleDays ?? 7; // Fallback para 7 se não configurado
   const maxDate = new Date(Date.now() + maxScheduleDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  // ✅ Calcular status da loja
-  // 🔑 Usar estado reativo de storeOpen que é atualizado quando settings mudam
-  // Se !storeOpen, significa que está fora do horário configurado
-  const isStoreClosed = !settings.isManuallyOpen || !storeOpen;
-
-  // 🔒 BLOQUEIO CRÍTICO: Se loja fechada (e agendamentos NÃO permitidos), mostrar aviso uma vez
-  useEffect(() => {
-    if (isSchedulingCheckoutOpen && isStoreClosed) {
-      console.log('🚫 [SCHEDULING] LOJA FECHADA - Agendamentos não permitidos');
-      // Não mostra toast pois o aviso visual já está no modal
-    }
-  }, [isStoreClosed, isSchedulingCheckoutOpen]);
+  // Time-based checkout restrictions removed - no blocking
+  const isStoreClosed = false; // Always allow checkout
 
   // ✅ Helper: Verificar se agendamento é para hoje
   const isScheduledForToday = scheduledDate === minDate;
 
-  // ✅ Lógica de aviso: Mostrar SOMENTE se:
-  // (Loja fechada manualmente OU fora do horário) E (agendamento NÃO permitido)
-  // Se allowSchedulingOutsideBusinessHours = true, NUNCA mostra aviso
-  const shouldShowStoreClosedAlert = isStoreClosed && step !== 'confirmation';
+  // No time-based alerts
+  const shouldShowStoreClosedAlert = false;
   const visibleSteps = getVisibleSteps(deliveryType);
 
   return (
