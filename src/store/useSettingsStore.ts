@@ -112,7 +112,7 @@ export const useSettingsStore = create<SettingsStore>()(
     try {
       const { settings: currentSettings } = get();
       
-      // Preparar o objeto para salvar no campo 'value' (JSON)
+      // ✅ OPÇÃO B: Salvando em colunas normalizadas + JSON para dados complexos
       const settingsValue = {
         name: currentSettings.name,
         phone: currentSettings.phone,
@@ -128,11 +128,12 @@ export const useSettingsStore = create<SettingsStore>()(
         sendOrderSummaryToWhatsApp: currentSettings.sendOrderSummaryToWhatsApp !== undefined ? currentSettings.sendOrderSummaryToWhatsApp : false,
       };
 
-      // Mapear para as colunas da tabela settings
+      // Mapear para as colunas da tabela settings - OPÇÃO B
       const { error } = await supabase
         .from('settings')
         .update({
           value: settingsValue,
+          // Colunas normalizadas
           printnode_printer_id: currentSettings.printnode_printer_id || null,
           print_mode: currentSettings.print_mode || 'auto',
           auto_print_pix: currentSettings.auto_print_pix || false,
@@ -145,6 +146,7 @@ export const useSettingsStore = create<SettingsStore>()(
           allow_scheduling_outside_business_hours: currentSettings.allowSchedulingOutsideBusinessHours ?? false,
           respect_business_hours_for_scheduling: currentSettings.respectBusinessHoursForScheduling ?? true,
           allow_same_day_scheduling_outside_hours: currentSettings.allowSameDaySchedulingOutsideHours ?? false,
+          is_manually_open: currentSettings.isManuallyOpen ?? true,
           updated_at: new Date().toISOString(),
         })
         .eq('id', 'store-settings');
@@ -154,7 +156,7 @@ export const useSettingsStore = create<SettingsStore>()(
         return;
       }
 
-      console.log('✅ Settings salvos no Supabase com sucesso:', settingsValue);
+      console.log('✅ Settings salvos no Supabase com sucesso (OPÇÃO B):', settingsValue);
     } catch (error) {
       console.error('❌ Erro ao atualizar settings:', error);
     }
@@ -195,9 +197,14 @@ export const useSettingsStore = create<SettingsStore>()(
           sendOrderSummaryToWhatsApp: currentSettings.sendOrderSummaryToWhatsApp,
         };
 
+        // ✅ OPÇÃO B: Atualizar com colunas normalizadas
         await supabase
           .from('settings')
-          .update({ value: settingsValue, updated_at: new Date().toISOString() })
+          .update({ 
+            value: settingsValue,
+            is_manually_open: currentSettings.isManuallyOpen,
+            updated_at: new Date().toISOString()
+          })
           .eq('id', 'store-settings');
 
         console.log('✅ schedule sincronizado no Supabase para', day);
@@ -293,7 +300,7 @@ export const useSettingsStore = create<SettingsStore>()(
     try {
       const { settings } = get();
       
-      // Preparar o objeto para salvar no campo 'value' (JSON)
+      // ✅ OPÇÃO B: Preparar o objeto para salvar no campo 'value' (dados complexos)
       const settingsValue = {
         name: settings.name,
         phone: settings.phone,
@@ -305,13 +312,16 @@ export const useSettingsStore = create<SettingsStore>()(
         pickupTimeMin: settings.pickupTimeMin,
         pickupTimeMax: settings.pickupTimeMax,
         isManuallyOpen: settings.isManuallyOpen,
+        orderAlertEnabled: settings.orderAlertEnabled,
+        sendOrderSummaryToWhatsApp: settings.sendOrderSummaryToWhatsApp,
       };
 
-      // Atualizar AMBOS: o JSON 'value' E os campos de PrintNode + payment configs
+      // ✅ Atualizar em colunas normalizadas + JSON
       const { error } = await supabase
         .from('settings')
         .update({
           value: settingsValue,
+          // Colunas normalizadas
           printnode_printer_id: settings.printnode_printer_id || null,
           print_mode: settings.print_mode || 'auto',
           auto_print_pix: settings.auto_print_pix || false,
@@ -324,6 +334,7 @@ export const useSettingsStore = create<SettingsStore>()(
           allow_scheduling_outside_business_hours: settings.allowSchedulingOutsideBusinessHours ?? false,
           respect_business_hours_for_scheduling: settings.respectBusinessHoursForScheduling ?? true,
           allow_same_day_scheduling_outside_hours: settings.allowSameDaySchedulingOutsideHours ?? false,
+          is_manually_open: settings.isManuallyOpen ?? true,
           updated_at: new Date().toISOString(),
         })
         .eq('id', 'store-settings');
@@ -333,7 +344,7 @@ export const useSettingsStore = create<SettingsStore>()(
         return { success: false, message: 'Erro ao sincronizar configurações' };
       }
 
-      console.log('✅ Settings sincronizados com Supabase');
+      console.log('✅ Settings sincronizados com Supabase (OPÇÃO B)');
       return { success: true, message: 'Configurações sincronizadas com sucesso!' };
     } catch (error) {
       console.error('❌ Erro ao sincronizar settings:', error);
