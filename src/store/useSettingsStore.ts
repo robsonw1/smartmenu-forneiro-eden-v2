@@ -242,11 +242,15 @@ export const useSettingsStore = create<SettingsStore>()(
   isStoreOpen: () => {
     const { settings } = get();
     
-    console.log('🔍 [IS-STORE-OPEN] Verificando status...', {
+    const debugInfo = {
       isManuallyOpen: settings.isManuallyOpen,
       scheduleExiste: !!settings.schedule,
       diasDoSchedule: settings.schedule ? Object.keys(settings.schedule) : [],
-    });
+      horaAtual: new Date().toLocaleTimeString('pt-BR'),
+      diaAtual: new Date().toLocaleDateString('pt-BR', { weekday: 'long' }),
+    };
+    
+    console.log('🔍 [IS-STORE-OPEN] Iniciando verificação:', debugInfo);
     
     // ❌ Se manual close button foi clicado: SEMPRE fechado (sem exceções)
     if (settings.isManuallyOpen === false) {
@@ -261,26 +265,32 @@ export const useSettingsStore = create<SettingsStore>()(
     const now = new Date();
     const currentDay = dayNames[now.getDay()];
     
-    console.log('🔍 [IS-STORE-OPEN] Dia atual:', currentDay);
+    console.log('🔍 [IS-STORE-OPEN] Dia atual do sistema:', currentDay);
 
     const daySchedule = settings.schedule ? settings.schedule[currentDay] : null;
 
     // Se não tem schedule configurado para hoje
     if (!daySchedule) {
-      console.log('❌ LOJA FECHADA - Dia não encontrado no schedule');
+      console.log('❌ LOJA FECHADA - Schedule do dia', currentDay, 'não encontrado no settings.schedule:', {
+        schedule: settings.schedule,
+        diaRequisitado: currentDay,
+      });
       return false;
     }
 
-    console.log(`📅 [IS-STORE-OPEN] Schedule de ${currentDay}:`, daySchedule);
+    console.log(`📅 [IS-STORE-OPEN] Schedule carregado para ${currentDay}:`, daySchedule);
 
     // ⚠️ CRÍTICO: Verificar se o dia está marcado como FECHADO
     if (daySchedule.isOpen === false) {
-      console.log('❌ LOJA FECHADA - Dia é', currentDay, '- marcado como FECHADO no schedule');
+      console.log('❌ LOJA FECHADA - Dia', currentDay, 'está marcado como FECHADO (isOpen=false)');
       return false;
     }
 
     if (!daySchedule.openTime || !daySchedule.closeTime) {
-      console.log('❌ LOJA FECHADA - Horários não configurados para hoje');
+      console.log('❌ LOJA FECHADA - Horários não configurados para hoje:', {
+        openTime: daySchedule.openTime,
+        closeTime: daySchedule.closeTime,
+      });
       return false;
     }
 
@@ -296,17 +306,24 @@ export const useSettingsStore = create<SettingsStore>()(
       const openTime = openHour * 60 + openMinute;
       let closeTime = closeHour * 60 + closeMinute;
       
+      console.log('⏰ [IS-STORE-OPEN] Verificando horário:', {
+        horaAtual: `${currentHour}:${String(currentMinute).padStart(2, '0')} (${currentTime} min)`,
+        horaAbertura: `${daySchedule.openTime} (${openTime} min)`,
+        horaFechamento: `${daySchedule.closeTime} (${closeTime} min)`,
+      });
+      
       // Handle closing time past midnight (e.g., 00:00 means midnight)
       if (closeTime <= openTime) {
         closeTime += 24 * 60; // Add 24 hours
         const adjustedCurrentTime = currentTime < openTime ? currentTime + 24 * 60 : currentTime;
         const isOpen = adjustedCurrentTime >= openTime && adjustedCurrentTime < closeTime;
-        console.log('⏰ [IS-STORE-OPEN]', isOpen ? `✅ ABERTA (${daySchedule.openTime}-${daySchedule.closeTime})` : `❌ FECHADA (${daySchedule.openTime}-${daySchedule.closeTime}) - Hora atual: ${now.toLocaleTimeString('pt-BR')}`);
+        console.log('⏰ [IS-STORE-OPEN] Horário com midnight:', isOpen ? `✅ ABERTA (${daySchedule.openTime}-${daySchedule.closeTime})` : `❌ FECHADA (${daySchedule.openTime}-${daySchedule.closeTime}) - Hora atual: ${now.toLocaleTimeString('pt-BR')}`);
         return isOpen;
       }
 
       const isOpen = currentTime >= openTime && currentTime < closeTime;
-      console.log('⏰ [IS-STORE-OPEN]', isOpen ? `✅ ABERTA (${daySchedule.openTime}-${daySchedule.closeTime})` : `❌ FECHADA (${daySchedule.openTime}-${daySchedule.closeTime}) - Hora atual: ${now.toLocaleTimeString('pt-BR')}`);
+      const status = isOpen ? `✅ ABERTA (${daySchedule.openTime}-${daySchedule.closeTime})` : `❌ FECHADA (${daySchedule.openTime}-${daySchedule.closeTime})`;
+      console.log('⏰ [IS-STORE-OPEN]', status, '- Hora atual:', now.toLocaleTimeString('pt-BR'));
       return isOpen;
     } catch (error) {
       console.error('Erro ao calcular horário de funcionamento:', error);
