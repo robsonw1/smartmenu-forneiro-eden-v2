@@ -559,11 +559,7 @@ export function CheckoutModal() {
   };
 
   const nextStep = () => {
-    // 🔒 BLOQUEIO: Se loja está fechada, NÃO permite avançar para próximos passos
-    if (!storeOpen || !settings.isManuallyOpen) {
-      toast.error(!settings.isManuallyOpen ? '🔒 Estabelecimento fechado manualmente. Não é possível fazer pedidos.' : '⏰ Estabelecimento fora do horário. Não é possível fazer pedidos.');
-      return;
-    }
+    // Horário de funcionamento removido - permitir pedidos em qualquer horário
     
     const baseSteps: Step[] = ['contact', 'delivery', 'address', 'payment'];
     
@@ -1406,18 +1402,8 @@ export function CheckoutModal() {
     }
   };
 
-  // 🔒 Usar estado reativo de storeOpen que é atualizado quando settings mudam
-  const isStoreClosed = !settings.isManuallyOpen || !storeOpen;
-
-  // 🔒 BLOQUEIO CRÍTICO: Se loja fechada, mostrar estado bloqueado
-  useEffect(() => {
-    if (isCheckoutOpen && isStoreClosed) {
-      console.log('🚫 [CHECKOUT] LOJA FECHADA - Modal BLOQUEADA');
-      toast.error(!settings.isManuallyOpen 
-        ? '🔒 Estabelecimento fechado manualmente. Pedidos não são permitidos.' 
-        : '⏰ Estabelecimento fora do horário. Pedidos não são permitidos.');
-    }
-  }, [isStoreClosed, isCheckoutOpen]);
+  // All time-based checkout restrictions removed
+  const isStoreClosed = false;
 
   return (
     <>
@@ -2246,8 +2232,7 @@ export function CheckoutModal() {
                   <Button 
                     className="btn-cta gap-2"
                     onClick={handleSubmitOrder}
-                    disabled={isProcessing || !storeOpen || !settings.isManuallyOpen}
-                    title={(!storeOpen || !settings.isManuallyOpen) ? '🔒 Loja fechada. Pedidos não permitidos.' : ''}
+                    disabled={isProcessing}
                   >
                     {isProcessing ? (
                       <>
@@ -2270,8 +2255,6 @@ export function CheckoutModal() {
                   <Button 
                     className="btn-cta gap-2" 
                     onClick={nextStep}
-                    disabled={!storeOpen || !settings.isManuallyOpen}
-                    title={(!storeOpen || !settings.isManuallyOpen) ? '🔒 Loja fechada. Pedidos não permitidos.' : ''}
                   >
                     Continuar
                     <ArrowRight className="w-4 h-4" />

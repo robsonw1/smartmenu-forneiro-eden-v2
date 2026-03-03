@@ -135,7 +135,8 @@ export function SchedulingCheckoutModal() {
   const [appliedCoupon, setAppliedCoupon] = useState<string>('');
   const [couponValidationMessage, setCouponValidationMessage] = useState<string>('');
   const [tenantId, setTenantId] = useState<string>('');
-  const [storeOpen, setStoreOpen] = useState<boolean>(false);
+  const [storeOpen, setStoreOpen] = useState<boolean>(false); // ⚠️ DEFAULT FALSE (mais seguro) até dados carregarem
+  const [settingsLoaded, setSettingsLoaded] = useState<boolean>(false);
 
   const validateAndUseCoupon = useCouponManagementStore((s) => s.validateAndUseCoupon);
   const markCouponAsUsed = useCouponManagementStore((s) => s.markCouponAsUsed);
@@ -161,43 +162,80 @@ export function SchedulingCheckoutModal() {
     tenantId
   );
 
+  // ✅ CRÍTICO: Marcar quando settings foram carregados (com schedule completo)
+  useEffect(() => {
+    const hasCompleteSchedule = settings?.schedule && Object.keys(settings.schedule).length === 7;
+    if (hasCompleteSchedule && !settingsLoaded) {
+      console.log('✅ [CHECKOUT] Settings carregados com schedule COMPLETO');
+      setSettingsLoaded(true);
+    }
+  }, [settings]); // ⚠️ SEM settingsLoaded na dependência para evitar loops
+
+  // 🔄 RESET: Quando modal fecha, resetar settingsLoaded para próxima abertura
+  useEffect(() => {
+    if (!isSchedulingCheckoutOpen && settingsLoaded) {
+      console.log('🔄 [CHECKOUT] Modal fechou, resetando settingsLoaded');
+      setSettingsLoaded(false);
+      setStoreOpen(false); // ⚠️ Reseta storeOpen também por segurança
+    }
+  }, [isSchedulingCheckoutOpen, settingsLoaded]);
+
   // ⚡ REALTIME: Monitorar status da loja em tempo real (abrir/fechar + horários)
   useStoreStatusRealtime(isSchedulingCheckoutOpen);
 
   // ⚡ REALTIME: Sincronizar configurações do admin em tempo real (schedule, horários, etc)
   useSettingsRealtimeSync();
 
-  // ⏰ REATIVO ROBUSTO: Recalcular storeOpen quando settings mudam + intervalo de 5s
+  // ⏰ REATIVO ROBUSTO: Recalcular storeOpen quando settings mudam + intervalo de 2s
   useEffect(() => {
+    if (!isSchedulingCheckoutOpen) return;
+    
+    // ✅ CRÍTICO: NÃO calcular storeOpen até que os dados tenham sido carregados completos
+    if (!settingsLoaded) {
+      console.log('⏳ [CHECKOUT] Aguardando settings completos (schedule com 7 dias)...');
+      setStoreOpen(false); // ⚠️ Manter como false até dados chegarem (seguro)
+      return;
+    }
+    
     // Função para recalcular status
     const recalculateStoreOpen = () => {
       const newStoreStatus = isStoreOpen();
+      const oldStatus = storeOpen;
+      
+      if (newStoreStatus !== oldStatus) {
+        console.log('📊 [CHECKOUT] storeOpen mudou de', oldStatus, 'para', newStoreStatus);
+      }
+      
       setStoreOpen(newStoreStatus);
-      console.log('🔄 [SCHEDULING-CHECKOUT] storeOpen recalculado:', newStoreStatus, 'Horário:', {
+      console.log('🔄 [CHECKOUT] storeOpen recalculado:', newStoreStatus, 'Horário:', {
         hora: new Date().toLocaleTimeString('pt-BR'),
         dia: new Date().toLocaleDateString('pt-BR', { weekday: 'long' }),
         isManuallyOpen: settings.isManuallyOpen,
+        daySchedule: settings.schedule ? settings.schedule[['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()]] : 'N/A',
       });
     };
 
-    // 1️⃣ Recalcular imediatamente quando checkout abre
+    // 1️⃣ Recalcular imediatamente quando checkout abre (com dados carregados)
     recalculateStoreOpen();
 
     // 2️⃣ Se inscrever nas mudanças de settings via Zustand
     const unsubscribe = useSettingsStore.subscribe(
-      () => recalculateStoreOpen()
+      (newState) => {
+        console.log('⚡ [CHECKOUT] Settings mudaram, recalculando storeOpen');
+        recalculateStoreOpen();
+      }
     );
 
-    // 3️⃣ Verificar a cada 5 segundos (MUITO MAIS RÁPIDO - cliente pega mudanças quase imediatamente)
+    // 3️⃣ Verificar a cada 2 segundos (RÁPIDO - cliente pega mudanças imediatamente)
     const interval = setInterval(() => {
       recalculateStoreOpen();
-    }, 5000); // 5 segundos
+    }, 2000); // 2 segundos
 
     return () => {
       unsubscribe();
       clearInterval(interval);
     };
-  }, [isSchedulingCheckoutOpen]); // Só depende de isSchedulingCheckoutOpen
+  }, [isSchedulingCheckoutOpen, isStoreOpen, settings, settingsLoaded]);
 
   // ✅ Função para formatar telefone
   const formatPhoneNumber = (phone: string): string => {
@@ -609,12 +647,7 @@ export function SchedulingCheckoutModal() {
   };
 
   const nextStep = () => {
-    // 🔒 BLOQUEIO: Horários configurados no admin SEMPRE são respeitados
-    if (!storeOpen) {
-      toast.error('⏰ Estabelecimento fora do horário de funcionamento. Agendamentos não permitidos.');
-      return;
-    }
-    
+    // Time restrictions removed - customers can advance anytime
     const steps = getVisibleSteps(deliveryType);
     const currentIndex = steps.indexOf(step as any);
     if (!validateStep(step)) return;
@@ -1041,20 +1074,10 @@ export function SchedulingCheckoutModal() {
   };
 
   const handleSubmitOrder = async () => {
-    // � PROTEÇÃO CRÍTICA #1: Se loja está fechada manualmente, BLOQUEIA IMEDIATAMENTE
-    if (!settings.isManuallyOpen && !settings.allowSchedulingOutsideBusinessHours) {
-      console.error('🚫 [SCHEDULING] BLOQUEIO: isManuallyOpen = false E allowSchedulingOutsideBusinessHours = false');
-      toast.error('🔒 Estabelecimento fechado manualmente. Agendamentos não são permitidos.');
-      return;
-    }
+    // All time-based restrictions removed
 
     // 🚫 PROTEÇÃO CRÍTICA #2: Horários configurados no admin SEMPRE são respeitados
-    const currentStoreOpen = isStoreOpen();
-    if (!currentStoreOpen) {
-      console.error('🚫 [SCHEDULING] BLOQUEIO: Estabelecimento fora do horário configurado');
-      toast.error('⏰ Estabelecimento fora do horário de funcionamento. Agendamento não permitido.');
-      return;
-    }
+    // Time-based restrictions removed - customers can schedule anytime
 
     console.log('✅ [SCHEDULING] Validações passaram - Processando agendamento');
     if (!validateStep('payment')) return;
@@ -1475,26 +1498,14 @@ export function SchedulingCheckoutModal() {
   const maxScheduleDays = settings.maxScheduleDays ?? 7; // Fallback para 7 se não configurado
   const maxDate = new Date(Date.now() + maxScheduleDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  // ✅ Calcular status da loja
-  // 🔑 Usar estado reativo de storeOpen que é atualizado quando settings mudam
-  // Se !storeOpen, significa que está fora do horário configurado
-  const isStoreClosed = !settings.isManuallyOpen || !storeOpen;
-
-  // 🔒 BLOQUEIO CRÍTICO: Se loja fechada (e agendamentos NÃO permitidos), mostrar aviso uma vez
-  useEffect(() => {
-    if (isSchedulingCheckoutOpen && isStoreClosed) {
-      console.log('🚫 [SCHEDULING] LOJA FECHADA - Agendamentos não permitidos');
-      // Não mostra toast pois o aviso visual já está no modal
-    }
-  }, [isStoreClosed, isSchedulingCheckoutOpen]);
+  // Time-based checkout restrictions removed - no blocking
+  const isStoreClosed = false; // Always allow checkout
 
   // ✅ Helper: Verificar se agendamento é para hoje
   const isScheduledForToday = scheduledDate === minDate;
 
-  // ✅ Lógica de aviso: Mostrar SOMENTE se:
-  // (Loja fechada manualmente OU fora do horário) E (agendamento NÃO permitido)
-  // Se allowSchedulingOutsideBusinessHours = true, NUNCA mostra aviso
-  const shouldShowStoreClosedAlert = isStoreClosed && step !== 'confirmation';
+  // No time-based alerts
+  const shouldShowStoreClosedAlert = false;
   const visibleSteps = getVisibleSteps(deliveryType);
 
   return (
@@ -1514,67 +1525,7 @@ export function SchedulingCheckoutModal() {
               </DialogTitle>
             </DialogHeader>
 
-            {/* ⚠️ STORE CLOSED CRITICAL BANNER - BLOQUEANTE */}
-            {isStoreClosed && step !== 'confirmation' && (
-              <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center pointer-events-none">
-                <div className="bg-red-600 text-white p-8 rounded-xl text-center max-w-md shadow-2xl">
-                  <div className="text-5xl mb-4">🔓</div>
-                  <h3 className="text-2xl font-bold mb-2">
-                    {!settings.isManuallyOpen ? 'ESTABELECIMENTO FECHADO' : 'HORÁRIO NÃO PERMITIDO'}
-                  </h3>
-                  <p className="text-base font-semibold">
-                    {!settings.isManuallyOpen 
-                      ? 'Não é possível agendar no momento' 
-                      : 'Loja está fora do horário'}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Store Closed Alert */}
-            {isStoreClosed && step !== 'confirmation' && (
-              <Alert variant="destructive" className="mt-4 border-2 border-red-600">
-                <AlertCircle className="h-5 w-5" />
-                <AlertDescription className="font-bold text-base">
-                  <strong>{!settings.isManuallyOpen ? '🔒 ESTABELECIMENTO FECHADO MANUALMENTE' : '⏰ FORA DO HORÁRIO DE FUNCIONAMENTO'}</strong> 
-                  <br />
-                  Não é possível fazer agendamentos no momento. Por favor, consulte nosso horário de funcionamento.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* 🔒 IF STORE IS CLOSED - RENDER DISABLED OVERLAY */}
-            {isStoreClosed && step !== 'confirmation' && (
-              <div className="mt-6 p-6 bg-red-50 border-2 border-red-300 rounded-lg">
-                <div className="flex items-center gap-4 text-red-700">
-                  <div className="text-4xl">🚫</div>
-                  <div>
-                    <p className="font-bold text-lg">Acesso bloqueado</p>
-                    <p className="text-sm">A loja não está funcionando agora. Volte mais tarde para agendar seu pedido.</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Store Closed Alert - LEGACY */}
-            {shouldShowStoreClosedAlert && !isStoreClosed && (
-              <Alert variant="destructive" className="mt-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  <strong>{!settings.isManuallyOpen ? '🔒 Estabelecimento Fechado Manualmente.' : '⏰ Fora do Horário de Funcionamento.'}</strong> {!settings.isManuallyOpen ? 'Não é possível fazer pedidos no momento.' : 'Agendamento fora do horário não está permitido.'}
-                  Consulte nosso horário de funcionamento.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {(!storeOpen || !settings.isManuallyOpen) && step !== 'confirmation' && settings.allowSchedulingOutsideBusinessHours && (
-              <Alert className="mt-4" style={{ backgroundColor: '#fef08a', borderColor: '#facc15', color: '#92400e' }}>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  <strong>✅ Loja fechada,</strong> mas você pode agendar um pedido para quando abrir!
-                </AlertDescription>
-              </Alert>
-            )}
+            {/* Store hours validation removed - customers can order anytime */}
 
             {/* Progress Steps */}
             {!['confirmation', 'pix'].includes(step) && (
@@ -2411,8 +2362,7 @@ export function SchedulingCheckoutModal() {
                   <Button 
                     className="btn-cta gap-2"
                     onClick={handleSubmitOrder}
-                    disabled={isProcessing || ((!storeOpen || !settings.isManuallyOpen) && !settings.allowSchedulingOutsideBusinessHours)}
-                    title={((!storeOpen || !settings.isManuallyOpen) && !settings.allowSchedulingOutsideBusinessHours) ? '🔒 Loja fechada. Pedidos não permitidos.' : ''}
+                    disabled={isProcessing}
                   >
                     {isProcessing ? (
                       <>
@@ -2435,8 +2385,6 @@ export function SchedulingCheckoutModal() {
                   <Button 
                     className="btn-cta gap-2" 
                     onClick={nextStep}
-                    disabled={(!storeOpen || !settings.isManuallyOpen) && !settings.allowSchedulingOutsideBusinessHours}
-                    title={((!storeOpen || !settings.isManuallyOpen) && !settings.allowSchedulingOutsideBusinessHours) ? '🔒 Loja fechada. Pedidos não permitidos.' : ''}
                   >
                     Continuar
                     <ArrowRight className="w-4 h-4" />
