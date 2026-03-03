@@ -1,188 +1,190 @@
 import { useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useCatalogStore } from '@/store/useCatalogStore';
-import { useOrdersStore } from '@/store/useOrdersStore';
-import { useNeighborhoodsStore } from '@/store/useNeighborhoodsStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import type { Product, Order, Neighborhood } from '@/data/products';
+import { supabase } from '@/integrations/supabase/client';
 
 /**
- * Converte os dados do Supabase (JSON) para o formato Product esperado
+ * Hook que sincroniza as configurações em tempo real do Supabase
+ * SINCRONIZA: isManuallyOpen (CRÍTICO), schedule, timing, etc
+ * TAMBÉM: Recalcula isStoreOpen() a cada minuto para detectar mudanças de horário
  */
-const parseProductFromSupabase = (supabaseData: any): Product => {
-  const data = supabaseData.data || {};
-  return {
-    id: supabaseData.id,
-    name: supabaseData.name || data.name,
-    description: data.description || '',
-    ingredients: data.ingredients || [],
-    category: data.category || 'combos',
-    price: data.price ?? undefined,
-    priceSmall: data.priceSmall ?? undefined,
-    priceLarge: data.priceLarge ?? undefined,
-    image: data.image,
-    isPopular: data.is_popular ?? false,
-    isNew: data.is_new ?? false,
-    isVegetarian: data.is_vegetarian ?? false,
-    isActive: data.is_active !== false,
-    isCustomizable: data.is_customizable ?? false,
-  };
-};
+export function useSettingsRealtimeSync() {
+  const updateSettings = useSettingsStore((s) => s.updateSettings);
+  const settings = useSettingsStore((s) => s.settings);
 
-/**
- * Hook que sincroniza os dados da aplicação com o Supabase em tempo real
- * Carrega os dados iniciais e escuta mudanças em produtos, pedidos, bairros e configurações
- */
-export const useRealtimeSync = () => {
   useEffect(() => {
-    let isMounted = true;
+    let isSubscribed = true;
+    let channel: any = null;
+    let timeCheckInterval: NodeJS.Timeout | null = null;
 
-    // Função para carregar dados iniciais
-    const loadInitialData = async () => {
-      if (!isMounted) return;
-      
+    const setupRealtimeSync = async () => {
       try {
-        // Delay mínimo para garantir que localStorage foi carregado
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        // Carregar produtos
-        const { data: products } = await (supabase as any)
-          .from('products')
-          .select('*');
+        console.log('🔄 [SETTINGS-SYNC] Carregando configurações do Supabase...');
         
-        if (products && isMounted) {
-          const catalogStore = useCatalogStore.getState();
-          for (const product of products) {
-            catalogStore.upsertProduct(parseProductFromSupabase(product));
-          }
-        }
-
-        // Carregar settings - IMPORTANTE: isso sobrescreve o localStorage
-        const { data: settingsData } = await (supabase as any)
+        const { data, error } = await supabase
           .from('settings')
           .select('*')
           .eq('id', 'store-settings')
           .single();
-        
-        if (settingsData && isMounted) {
-          const settingsStore = useSettingsStore.getState();
-          
-          // Se tiver 'value' (JSON), usar ele. Senão usar os campos individuais como fallback
-          const valueData = settingsData.value || {};
-          
-          settingsStore.updateSettings({
-            name: valueData.name || settingsData.store_name || 'Forneiro Éden',
-            phone: valueData.phone || settingsData.store_phone || '(11) 99999-9999',
-            address: valueData.address || settingsData.store_address || 'Rua das Pizzas, 123 - Centro',
-            slogan: valueData.slogan || settingsData.slogan || 'A Pizza mais recheada da cidade 🇮🇹',
-            schedule: valueData.schedule, // Manter do JSON ou usar padrão do store
-            deliveryTimeMin: valueData.deliveryTimeMin || 60,
-            deliveryTimeMax: valueData.deliveryTimeMax || 70,
-            pickupTimeMin: valueData.pickupTimeMin || 40,
-            pickupTimeMax: valueData.pickupTimeMax || 50,
-            isManuallyOpen: valueData.isManuallyOpen !== undefined ? valueData.isManuallyOpen : true,
-            orderAlertEnabled: valueData.orderAlertEnabled !== undefined ? valueData.orderAlertEnabled : true,
-            sendOrderSummaryToWhatsApp: valueData.sendOrderSummaryToWhatsApp !== undefined ? valueData.sendOrderSummaryToWhatsApp : false,
-            printnode_printer_id: settingsData.printnode_printer_id,
-            print_mode: settingsData.print_mode || 'auto',
-            auto_print_pix: settingsData.auto_print_pix === true,
-            auto_print_card: settingsData.auto_print_card === true,
-            auto_print_cash: settingsData.auto_print_cash === true,
-          });
-          console.log('✅ Settings carregados do Supabase:', settingsData);
+
+        if (error) {
+          console.error('❌ [SETTINGS-SYNC] Erro ao carregar settings:', error.message);
+          return;
         }
 
-        // Carregar bairros
-        const { data: neighborhoods } = await (supabase as any)
-          .from('neighborhoods')
-          .select('*');
-        
-        if (neighborhoods && isMounted) {
-          const neighborhoodsStore = useNeighborhoodsStore.getState();
-          for (const neighborhood of neighborhoods) {
-            neighborhoodsStore.upsertNeighborhood(neighborhood as Neighborhood);
-          }
+        if (data && isSubscribed) {
+          console.log('📥 [SETTINGS-SYNC] Configurações carregadas com sucesso');
+          
+          const settingsData = data as any;
+          const valueJson = settingsData.value || {};
+          
+          // ✅ CRÍTICO: Se schedule vazio, usar defaults
+          const loadedSchedule = valueJson.schedule || {
+            monday: { isOpen: false, openTime: '18:00', closeTime: '23:00' },
+            tuesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+            wednesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+            thursday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+            friday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+            saturday: { isOpen: true, openTime: '17:00', closeTime: '00:00' },
+            sunday: { isOpen: true, openTime: '17:00', closeTime: '23:00' },
+          };
+          
+          console.log('👀 [SETTINGS-SYNC] is_manually_open:', settingsData.is_manually_open);
+          console.log('⏰ [SETTINGS-SYNC] schedule:', loadedSchedule);
+
+          // ✅ OPÇÃO B: Ler de colunas normalizadas + JSON para dados complexos
+          await updateSettings({
+            name: valueJson.name || 'Forneiro Éden',
+            phone: valueJson.phone || '(11) 99999-9999',
+            address: valueJson.address || 'Rua das Pizzas, 123 - Centro',
+            slogan: valueJson.slogan || 'A Pizza mais recheada da cidade 🇮🇹',
+            schedule: loadedSchedule,
+            isManuallyOpen: settingsData.is_manually_open ?? true,
+            deliveryTimeMin: valueJson.deliveryTimeMin ?? 60,
+            deliveryTimeMax: valueJson.deliveryTimeMax ?? 70,
+            pickupTimeMin: valueJson.pickupTimeMin ?? 40,
+            pickupTimeMax: valueJson.pickupTimeMax ?? 50,
+            orderAlertEnabled: valueJson.orderAlertEnabled ?? true,
+            sendOrderSummaryToWhatsApp: valueJson.sendOrderSummaryToWhatsApp ?? false,
+            printnode_printer_id: settingsData.printnode_printer_id || null,
+            print_mode: settingsData.print_mode || 'auto',
+            auto_print_pix: settingsData.auto_print_pix ?? false,
+            auto_print_card: settingsData.auto_print_card ?? false,
+            auto_print_cash: settingsData.auto_print_cash ?? false,
+            enableScheduling: settingsData.enable_scheduling ?? false,
+            minScheduleMinutes: settingsData.min_schedule_minutes ?? 30,
+            maxScheduleDays: settingsData.max_schedule_days ?? 7,
+            allowSchedulingOnClosedDays: settingsData.allow_scheduling_on_closed_days ?? false,
+            allowSchedulingOutsideBusinessHours: settingsData.allow_scheduling_outside_business_hours ?? false,
+            respectBusinessHoursForScheduling: settingsData.respect_business_hours_for_scheduling ?? true,
+            allowSameDaySchedulingOutsideHours: settingsData.allow_same_day_scheduling_outside_hours ?? false,
+          });
+          
+          console.log('✅ [SETTINGS-SYNC] Store atualizado com SUCESSO na primeira carga');
         }
       } catch (error) {
-        console.error('Erro ao carregar dados iniciais:', error);
+        console.error('❌ [SETTINGS-SYNC] Erro ao configurar realtime:', error);
       }
     };
 
-    loadInitialData();
+    setupRealtimeSync();
 
-    // Sincronizar Produtos (Catálogo)
-    const productsChannel = supabase
-      .channel('realtime:products')
+    // Inscrever-se a mudanças em TEMPO REAL
+    channel = supabase
+      .channel('settings-realtime-sync')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'products' },
-        (payload) => {
-          if (!isMounted) return;
-          const catalogStore = useCatalogStore.getState();
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'settings',
+          filter: 'id=eq.store-settings',
+        },
+        async (payload: any) => {
+          if (!isSubscribed) return;
+
+          console.log('⚡⚡⚡ [SETTINGS-SYNC] MUDANÇA DETECTADA EM TEMPO REAL ⚡⚡⚡');
           
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const product = parseProductFromSupabase(payload.new);
-            catalogStore.upsertProduct(product);
-          } else if (payload.eventType === 'DELETE') {
-            const oldProduct = payload.old as any;
-            catalogStore.removeProduct(oldProduct.id);
-          }
+          const newData = payload.new as any;
+          const newValueJson = newData.value || {};
+          
+          // ✅ CRÍTICO: Se schedule vazio, usar defaults
+          const newLoadedSchedule = newValueJson.schedule || {
+            monday: { isOpen: false, openTime: '18:00', closeTime: '23:00' },
+            tuesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+            wednesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+            thursday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+            friday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+            saturday: { isOpen: true, openTime: '17:00', closeTime: '00:00' },
+            sunday: { isOpen: true, openTime: '17:00', closeTime: '23:00' },
+          };
+          
+          console.log('🔴 [SETTINGS-SYNC] NOVO is_manually_open:', newData.is_manually_open);
+          console.log('📊 [SETTINGS-SYNC] Novos dados completos:', {
+            is_manually_open: newData.is_manually_open,
+            schedule: newLoadedSchedule,
+            enable_scheduling: newData.enable_scheduling,
+          });
+
+          // ✅ OPÇÃO B: Atualizar de colunas normalizadas + JSON
+          await updateSettings({
+            name: newValueJson.name || 'Forneiro Éden',
+            phone: newValueJson.phone || '(11) 99999-9999',
+            address: newValueJson.address || 'Rua das Pizzas, 123 - Centro',
+            slogan: newValueJson.slogan || 'A Pizza mais recheada da cidade 🇮🇹',
+            schedule: newLoadedSchedule,
+            isManuallyOpen: newData.is_manually_open ?? true,
+            deliveryTimeMin: newValueJson.deliveryTimeMin ?? 60,
+            deliveryTimeMax: newValueJson.deliveryTimeMax ?? 70,
+            pickupTimeMin: newValueJson.pickupTimeMin ?? 40,
+            pickupTimeMax: newValueJson.pickupTimeMax ?? 50,
+            orderAlertEnabled: newValueJson.orderAlertEnabled ?? true,
+            sendOrderSummaryToWhatsApp: newValueJson.sendOrderSummaryToWhatsApp ?? false,
+            printnode_printer_id: newData.printnode_printer_id || null,
+            print_mode: newData.print_mode || 'auto',
+            auto_print_pix: newData.auto_print_pix ?? false,
+            auto_print_card: newData.auto_print_card ?? false,
+            auto_print_cash: newData.auto_print_cash ?? false,
+            enableScheduling: newData.enable_scheduling ?? false,
+            minScheduleMinutes: newData.min_schedule_minutes ?? 30,
+            maxScheduleDays: newData.max_schedule_days ?? 7,
+            allowSchedulingOnClosedDays: newData.allow_scheduling_on_closed_days ?? false,
+            allowSchedulingOutsideBusinessHours: newData.allow_scheduling_outside_business_hours ?? false,
+            respectBusinessHoursForScheduling: newData.respect_business_hours_for_scheduling ?? true,
+            allowSameDaySchedulingOutsideHours: newData.allow_same_day_scheduling_outside_hours ?? false,
+          });
+
+          console.log('✅✅✅ [SETTINGS-SYNC] Store SINCRONIZADO em tempo real ✅✅✅');
         }
       )
-      .subscribe();
-
-    // Sincronizar Pedidos
-    const ordersChannel = supabase
-      .channel('realtime:orders')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
-        (payload) => {
-          if (!isMounted) return;
-          const ordersStore = useOrdersStore.getState();
-          
-          if (payload.eventType === 'INSERT') {
-            // Novo pedido foi criado - sincronizar para pegar todos os dados
-            // Não chamar addOrder aqui pois causariam duplicação (já foi inserido no BD)
-            ordersStore.syncOrdersFromSupabase();
-          } else if (payload.eventType === 'UPDATE') {
-            // Pedido foi atualizado - sincronizar para pegar dados atualizados (status, printed_at, etc)
-            ordersStore.syncOrdersFromSupabase();
-          } else if (payload.eventType === 'DELETE') {
-            ordersStore.removeOrder((payload.old as Order).id);
-          }
+      .subscribe((status, error) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ [SETTINGS-SYNC] Canal Realtime ATIVO - ouvindo mudanças');
+        } else if (status === 'CLOSED') {
+          console.log('🔴 [SETTINGS-SYNC] Canal Realtime FECHADO');
+        } else if (error) {
+          console.error('❌ [SETTINGS-SYNC] Erro:', error);
         }
-      )
-      .subscribe();
+      });
 
-    // Sincronizar Bairros
-    const neighborhoodsChannel = supabase
-      .channel('realtime:neighborhoods')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'neighborhoods' },
-        (payload) => {
-          if (!isMounted) return;
-          const neighborhoodsStore = useNeighborhoodsStore.getState();
-          
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            neighborhoodsStore.upsertNeighborhood(payload.new as Neighborhood);
-          } else if (payload.eventType === 'DELETE') {
-            neighborhoodsStore.removeNeighborhood((payload.old as Neighborhood).id);
-          }
-        }
-      )
-      .subscribe();
+    // ⏰ VERIFICAÇÃO A CADA MINUTO: Recalcular isStoreOpen() para detectar mudanças de horário
+    // Isso garante que quando o horário mudar (ex: 23:59 → 00:00), o cliente recebe feedback
+    timeCheckInterval = setInterval(() => {
+      if (isSubscribed) {
+        // Forçar re-render do Zustand Store para recalcular isStoreOpen()
+        // Isso desencadeia componentes que dependem de isStoreOpen()
+        console.log('⏰ [TIME-CHECK] Recalculando isStoreOpen() (verificação a cada minuto)');
+        updateSettings(settings); // Força re-render sin cambiar dados
+      }
+    }, 60000); // 60 segundos = 1 minuto
 
-    // ⚠️ NOTA: Sincronização de Settings agora é feita exclusivamente em use-settings-realtime-sync.ts
-    // para evitar conflito de canais realtime. Este hook foi removido daqui.
-
-    // Cleanup: Desinscrever de todos os canais ao desmontar
     return () => {
-      isMounted = false;
-      productsChannel.unsubscribe();
-      ordersChannel.unsubscribe();
-      neighborhoodsChannel.unsubscribe();
+      isSubscribed = false;
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+      if (timeCheckInterval) {
+        clearInterval(timeCheckInterval);
+      }
     };
   }, []);
-};
+}
