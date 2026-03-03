@@ -48,23 +48,28 @@ export function useSettingsRealtimeSync() {
             sunday: { isOpen: true, openTime: '17:00', closeTime: '23:00' },
           };
           
-          console.log('👀 [SETTINGS-SYNC] isManuallyOpen:', valueJson.isManuallyOpen);
+          console.log('👀 [SETTINGS-SYNC] is_manually_open:', settingsData.is_manually_open);
           console.log('⏰ [SETTINGS-SYNC] schedule:', loadedSchedule);
 
-          // Mapear TODOS os campos para o store
+          // ✅ OPÇÃO B: Ler de colunas normalizadas + JSON para dados complexos
           await updateSettings({
             name: valueJson.name || 'Forneiro Éden',
             phone: valueJson.phone || '(11) 99999-9999',
             address: valueJson.address || 'Rua das Pizzas, 123 - Centro',
             slogan: valueJson.slogan || 'A Pizza mais recheada da cidade 🇮🇹',
-            schedule: loadedSchedule, // ✅ USE LOADED SCHEDULE WITH DEFAULTS
-            isManuallyOpen: valueJson.isManuallyOpen ?? true,
+            schedule: loadedSchedule,
+            isManuallyOpen: settingsData.is_manually_open ?? true,
             deliveryTimeMin: valueJson.deliveryTimeMin ?? 60,
             deliveryTimeMax: valueJson.deliveryTimeMax ?? 70,
             pickupTimeMin: valueJson.pickupTimeMin ?? 40,
             pickupTimeMax: valueJson.pickupTimeMax ?? 50,
             orderAlertEnabled: valueJson.orderAlertEnabled ?? true,
             sendOrderSummaryToWhatsApp: valueJson.sendOrderSummaryToWhatsApp ?? false,
+            printnode_printer_id: settingsData.printnode_printer_id || null,
+            print_mode: settingsData.print_mode || 'auto',
+            auto_print_pix: settingsData.auto_print_pix ?? false,
+            auto_print_card: settingsData.auto_print_card ?? false,
+            auto_print_cash: settingsData.auto_print_cash ?? false,
             enableScheduling: settingsData.enable_scheduling ?? false,
             minScheduleMinutes: settingsData.min_schedule_minutes ?? 30,
             maxScheduleDays: settingsData.max_schedule_days ?? 7,
@@ -113,27 +118,32 @@ export function useSettingsRealtimeSync() {
             sunday: { isOpen: true, openTime: '17:00', closeTime: '23:00' },
           };
           
-          console.log('🔴 [SETTINGS-SYNC] NOVO isManuallyOpen:', newValueJson.isManuallyOpen);
+          console.log('🔴 [SETTINGS-SYNC] NOVO is_manually_open:', newData.is_manually_open);
           console.log('📊 [SETTINGS-SYNC] Novos dados completos:', {
-            isManuallyOpen: newValueJson.isManuallyOpen,
+            is_manually_open: newData.is_manually_open,
             schedule: newLoadedSchedule,
             enable_scheduling: newData.enable_scheduling,
           });
 
-          // Atualizar TODOS os campos
+          // ✅ OPÇÃO B: Atualizar de colunas normalizadas + JSON
           await updateSettings({
             name: newValueJson.name || 'Forneiro Éden',
             phone: newValueJson.phone || '(11) 99999-9999',
             address: newValueJson.address || 'Rua das Pizzas, 123 - Centro',
             slogan: newValueJson.slogan || 'A Pizza mais recheada da cidade 🇮🇹',
-            schedule: newLoadedSchedule, // ✅ USE NEW LOADED SCHEDULE WITH DEFAULTS
-            isManuallyOpen: newValueJson.isManuallyOpen ?? true,
+            schedule: newLoadedSchedule,
+            isManuallyOpen: newData.is_manually_open ?? true,
             deliveryTimeMin: newValueJson.deliveryTimeMin ?? 60,
             deliveryTimeMax: newValueJson.deliveryTimeMax ?? 70,
             pickupTimeMin: newValueJson.pickupTimeMin ?? 40,
             pickupTimeMax: newValueJson.pickupTimeMax ?? 50,
             orderAlertEnabled: newValueJson.orderAlertEnabled ?? true,
             sendOrderSummaryToWhatsApp: newValueJson.sendOrderSummaryToWhatsApp ?? false,
+            printnode_printer_id: newData.printnode_printer_id || null,
+            print_mode: newData.print_mode || 'auto',
+            auto_print_pix: newData.auto_print_pix ?? false,
+            auto_print_card: newData.auto_print_card ?? false,
+            auto_print_cash: newData.auto_print_cash ?? false,
             enableScheduling: newData.enable_scheduling ?? false,
             minScheduleMinutes: newData.min_schedule_minutes ?? 30,
             maxScheduleDays: newData.max_schedule_days ?? 7,
