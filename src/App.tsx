@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 import { useSettingsRealtimeSync } from "@/hooks/use-settings-realtime-sync";
 import { useSettingsInitialLoad } from "@/hooks/use-settings-initial-load";
+import { useScheduleSync } from "@/hooks/use-schedule-sync";
 import { useLoyaltySettingsStore } from "@/store/useLoyaltySettingsStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import Index from "./pages/Index.tsx";
@@ -21,6 +22,7 @@ const AppContent = () => {
   useRealtimeSync();
   useSettingsInitialLoad();
   useSettingsRealtimeSync();
+  useScheduleSync(); // ✅ Checar e corrigir schedule incompleto
   const { loadSettings } = useLoyaltySettingsStore();
 
   // Carregar configurações de fidelização ao iniciar
