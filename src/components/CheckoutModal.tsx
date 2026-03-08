@@ -118,7 +118,8 @@ export function CheckoutModal() {
   const [appliedCoupon, setAppliedCoupon] = useState<string>('');
   const [couponValidationMessage, setCouponValidationMessage] = useState<string>('');
   const [tenantId, setTenantId] = useState<string>('');
-  const [storeOpen, setStoreOpen] = useState<boolean>(false);
+  const [storeOpen, setStoreOpen] = useState<boolean>(false); // ⚠️ DEFAULT FALSE (mais seguro) até dados carregarem
+  const [settingsLoaded, setSettingsLoaded] = useState<boolean>(false);
 
   const validateAndUseCoupon = useCouponManagementStore((s) => s.validateAndUseCoupon);
   const markCouponAsUsed = useCouponManagementStore((s) => s.markCouponAsUsed);
@@ -143,37 +144,74 @@ export function CheckoutModal() {
   // ⚡ REALTIME: Sincronizar configurações do admin em tempo real (schedule, horários, etc)
   useSettingsRealtimeSync();
 
-  // ⏰ REATIVO ROBUSTO: Recalcular storeOpen quando settings mudam + intervalo de 5s
+  // ✅ CRÍTICO: Marcar quando settings foram carregados (com schedule completo)
   useEffect(() => {
+    const hasCompleteSchedule = settings?.schedule && Object.keys(settings.schedule).length === 7;
+    if (hasCompleteSchedule && !settingsLoaded) {
+      console.log('✅ [CHECKOUT] Settings carregados com schedule COMPLETO');
+      setSettingsLoaded(true);
+    }
+  }, [settings]); // ⚠️ SEM settingsLoaded na dependência para evitar loops
+
+  // 🔄 RESET: Quando modal fecha, resetar settingsLoaded para próxima abertura
+  useEffect(() => {
+    if (!isCheckoutOpen && settingsLoaded) {
+      console.log('🔄 [CHECKOUT] Modal fechou, resetando settingsLoaded');
+      setSettingsLoaded(false);
+      setStoreOpen(false); // ⚠️ Reseta storeOpen também por segurança
+    }
+  }, [isCheckoutOpen, settingsLoaded]);
+
+  // ⏰ REATIVO ROBUSTO: Recalcular storeOpen quando settings mudam + intervalo de 2s
+  useEffect(() => {
+    if (!isCheckoutOpen) return;
+    
+    // ✅ CRÍTICO: NÃO calcular storeOpen até que os dados tenham sido carregados completos
+    if (!settingsLoaded) {
+      console.log('⏳ [CHECKOUT] Aguardando settings completos (schedule com 7 dias)...');
+      setStoreOpen(false); // ⚠️ Manter como false até dados chegarem (seguro)
+      return;
+    }
+    
     // Função para recalcular status
     const recalculateStoreOpen = () => {
       const newStoreStatus = isStoreOpen();
+      const oldStatus = storeOpen;
+      
+      if (newStoreStatus !== oldStatus) {
+        console.log('📊 [CHECKOUT] storeOpen mudou de', oldStatus, 'para', newStoreStatus);
+      }
+      
       setStoreOpen(newStoreStatus);
       console.log('🔄 [CHECKOUT] storeOpen recalculado:', newStoreStatus, 'Horário:', {
         hora: new Date().toLocaleTimeString('pt-BR'),
         dia: new Date().toLocaleDateString('pt-BR', { weekday: 'long' }),
         isManuallyOpen: settings.isManuallyOpen,
+        daySchedule: settings.schedule ? settings.schedule[['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()]] : 'N/A',
       });
     };
 
-    // 1️⃣ Recalcular imediatamente quando checkout abre
+    // 1️⃣ Recalcular imediatamente quando checkout abre (com dados carregados)
     recalculateStoreOpen();
 
     // 2️⃣ Se inscrever nas mudanças de settings via Zustand
     const unsubscribe = useSettingsStore.subscribe(
-      () => recalculateStoreOpen()
+      (newState) => {
+        console.log('⚡ [CHECKOUT] Settings mudaram, recalculando storeOpen');
+        recalculateStoreOpen();
+      }
     );
 
-    // 3️⃣ Verificar a cada 5 segundos (MUITO MAIS RÁPIDO - cliente pega mudanças quase imediatamente)
+    // 3️⃣ Verificar a cada 2 segundos (RÁPIDO - cliente pega mudanças imediatamente)
     const interval = setInterval(() => {
       recalculateStoreOpen();
-    }, 5000); // 5 segundos
+    }, 2000); // 2 segundos
 
     return () => {
       unsubscribe();
       clearInterval(interval);
     };
-  }, [isCheckoutOpen]); // Só depende de isCheckoutOpen
+  }, [isCheckoutOpen, isStoreOpen, settings, settingsLoaded]);
 
   // ✅ Função para formatar telefone
   const formatPhoneNumber = (phone: string): string => {
