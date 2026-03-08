@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 export interface DaySchedule {
   isOpen: boolean;
   openTime: string;
@@ -48,6 +48,8 @@ interface StoreSettings {
 interface SettingsStore {
   settings: StoreSettings;
   updateSettings: (settings: Partial<StoreSettings>) => Promise<void>;
+  loadSettingsFromSupabase: () => Promise<void>;
+  loadSettingsLocally: (settings: Partial<StoreSettings>) => void;
   setSetting: (key: keyof StoreSettings, value: any) => void;
   updateDaySchedule: (day: keyof WeekSchedule, schedule: Partial<DaySchedule>) => void;
   toggleManualOpen: () => void;
@@ -98,67 +100,212 @@ const defaultSettings: StoreSettings = {
 
 const dayNames: (keyof WeekSchedule)[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
-export const useSettingsStore = create<SettingsStore>()(
-  persist(
-    (set, get) => ({
+export const useSettingsStore = create<SettingsStore>((set, get) => ({
   settings: defaultSettings,
 
-  updateSettings: async (newSettings) => {
-    set((state) => ({
-      settings: { ...state.settings, ...newSettings },
-    }));
-    
-    // Salvar no Supabase
+  loadSettingsFromSupabase: async () => {
     try {
-      const { settings: currentSettings } = get();
+      console.log('📥 [LOAD-SUPABASE] ════════════════════════════════════════');
+      console.log('📥 [LOAD-SUPABASE] Carregando TODAS as settings do Supabase...');
       
-      // ✅ OPÇÃO B: Salvando em colunas normalizadas + JSON para dados complexos
-      const settingsValue = {
-        name: currentSettings.name,
-        phone: currentSettings.phone,
-        address: currentSettings.address,
-        slogan: currentSettings.slogan,
-        schedule: currentSettings.schedule,
-        deliveryTimeMin: currentSettings.deliveryTimeMin,
-        deliveryTimeMax: currentSettings.deliveryTimeMax,
-        pickupTimeMin: currentSettings.pickupTimeMin,
-        pickupTimeMax: currentSettings.pickupTimeMax,
-        isManuallyOpen: currentSettings.isManuallyOpen,
-        orderAlertEnabled: currentSettings.orderAlertEnabled !== undefined ? currentSettings.orderAlertEnabled : true,
-        sendOrderSummaryToWhatsApp: currentSettings.sendOrderSummaryToWhatsApp !== undefined ? currentSettings.sendOrderSummaryToWhatsApp : false,
-      };
-
-      // Mapear para as colunas da tabela settings - OPÇÃO B
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('settings')
-        .update({
-          value: settingsValue,
-          // Colunas normalizadas
-          printnode_printer_id: currentSettings.printnode_printer_id || null,
-          print_mode: currentSettings.print_mode || 'auto',
-          auto_print_pix: currentSettings.auto_print_pix || false,
-          auto_print_card: currentSettings.auto_print_card || false,
-          auto_print_cash: currentSettings.auto_print_cash || false,
-          enable_scheduling: currentSettings.enableScheduling ?? false,
-          min_schedule_minutes: currentSettings.minScheduleMinutes ?? 30,
-          max_schedule_days: currentSettings.maxScheduleDays ?? 7,
-          allow_scheduling_on_closed_days: currentSettings.allowSchedulingOnClosedDays ?? false,
-          allow_scheduling_outside_business_hours: currentSettings.allowSchedulingOutsideBusinessHours ?? false,
-          respect_business_hours_for_scheduling: currentSettings.respectBusinessHoursForScheduling ?? true,
-          allow_same_day_scheduling_outside_hours: currentSettings.allowSameDaySchedulingOutsideHours ?? false,
-          is_manually_open: currentSettings.isManuallyOpen ?? true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', 'store-settings');
+        .select('*')
+        .eq('id', 'store-settings')
+        .single();
 
       if (error) {
-        console.error('❌ Erro ao salvar settings no Supabase:', error);
+        console.error('❌ [LOAD-SUPABASE] Erro ao carregar settings:', error);
         return;
       }
 
-      console.log('✅ Settings salvos no Supabase com sucesso (OPÇÃO B):', settingsValue);
+      if (data) {
+        const settingsData = data as any;
+        const valueJson = settingsData.value || {};
+        
+        console.log('📥 [LOAD-SUPABASE] Dados brutos do banco:');
+        console.log('📥 [LOAD-SUPABASE] value.schedule:', valueJson.schedule);
+        
+        // ✅ CARREGAR SCHEDULE COM DEFAULTS SE NÃO TIVER
+        const loadedSchedule = valueJson.schedule || {
+          monday: { isOpen: false, openTime: '18:00', closeTime: '23:00' },
+          tuesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+          wednesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+          thursday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+          friday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
+          saturday: { isOpen: true, openTime: '17:00', closeTime: '00:00' },
+          sunday: { isOpen: true, openTime: '17:00', closeTime: '23:00' },
+        };
+
+        console.log('📥 [LOAD-SUPABASE] Schedule que será usado:', loadedSchedule);
+
+        // ✅ MAPEAR TODOS OS CAMPOS DO BANCO PARA O ESTADO
+        set({
+          settings: {
+            name: valueJson.name || 'Forneiro Éden',
+            phone: valueJson.phone || '(11) 99999-9999',
+            address: valueJson.address || 'Rua das Pizzas, 123 - Centro',
+            slogan: valueJson.slogan || 'A Pizza mais recheada da cidade 🇮🇹',
+            schedule: loadedSchedule,
+            // 🔓 CARREGAR DA COLUNA NORMALIZADA PRIMEIRO, depois do JSON como fallback
+            isManuallyOpen: settingsData.is_manually_open !== null ? settingsData.is_manually_open : (valueJson.isManuallyOpen ?? true),
+            deliveryTimeMin: valueJson.deliveryTimeMin ?? 60,
+            deliveryTimeMax: valueJson.deliveryTimeMax ?? 70,
+            pickupTimeMin: valueJson.pickupTimeMin ?? 40,
+            pickupTimeMax: valueJson.pickupTimeMax ?? 50,
+            adminPassword: valueJson.adminPassword || 'admin123',
+            // 🖨️  PRINTNODE: Tentar carregar da coluna normalizada PRIMEIRO, depois do JSON como fallback
+            printnode_printer_id: settingsData.printnode_printer_id || valueJson.printnode_printer_id || null,
+            print_mode: settingsData.print_mode || valueJson.print_mode || 'auto',
+            auto_print_pix: settingsData.auto_print_pix ?? (valueJson.auto_print_pix ?? false),
+            auto_print_card: settingsData.auto_print_card ?? (valueJson.auto_print_card ?? false),
+            auto_print_cash: settingsData.auto_print_cash ?? (valueJson.auto_print_cash ?? false),
+            orderAlertEnabled: valueJson.orderAlertEnabled ?? true,
+            sendOrderSummaryToWhatsApp: valueJson.sendOrderSummaryToWhatsApp ?? false,
+            enableScheduling: settingsData.enable_scheduling ?? false,
+            minScheduleMinutes: settingsData.min_schedule_minutes ?? 30,
+            maxScheduleDays: settingsData.max_schedule_days ?? 7,
+            allowSchedulingOnClosedDays: settingsData.allow_scheduling_on_closed_days ?? false,
+            allowSchedulingOutsideBusinessHours: settingsData.allow_scheduling_outside_business_hours ?? false,
+            respectBusinessHoursForScheduling: settingsData.respect_business_hours_for_scheduling ?? true,
+            allowSameDaySchedulingOutsideHours: settingsData.allow_same_day_scheduling_outside_hours ?? false,
+            timezone: valueJson.timezone || 'America/Sao_Paulo',
+          }
+        });
+
+        console.log('✅ [LOAD-SUPABASE] Store atualizado com SUCESSO');
+        console.log('🖨️  [LOAD-SUPABASE] PrintNode carregado: ID=', settingsData.printnode_printer_id, ', Mode=', settingsData.print_mode);
+        console.log('� [LOAD-SUPABASE] ════════════════════════════════════════');
+      }
     } catch (error) {
-      console.error('❌ Erro ao atualizar settings:', error);
+      console.error('❌ [LOAD-SUPABASE] Exceção ao carregar settings:', error);
+    }
+  },
+
+  updateSettings: async (newSettings) => {
+    try {
+      // 1️⃣ ATUALIZAR ESTADO LOCAL PRIMEIRO
+      set((state) => ({
+        settings: { ...state.settings, ...newSettings },
+      }));
+      
+      // 2️⃣ PEGAR ESTADO ATUALIZADO
+      const { settings: currentSettings } = get();
+      
+      console.log('💾 [UPDATE-SETTINGS] ════════════════════════════════════════');
+      console.log('💾 [UPDATE-SETTINGS] INICIANDO SALVAMENTO NO SUPABASE');
+      console.log('💾 [UPDATE-SETTINGS] Schedule que será salvo:', currentSettings.schedule);
+
+      // 3️⃣ PREPARAR DADOS - SCHEDULE DEVE ESTAR 100% COMPLETO
+      const updateData: any = {
+        value: {
+          name: currentSettings.name,
+          phone: currentSettings.phone,
+          address: currentSettings.address,
+          slogan: currentSettings.slogan,
+          schedule: currentSettings.schedule, // ✅ SCHEDULE COMPLETO
+          isManuallyOpen: currentSettings.isManuallyOpen,
+          deliveryTimeMin: currentSettings.deliveryTimeMin,
+          deliveryTimeMax: currentSettings.deliveryTimeMax,
+          pickupTimeMin: currentSettings.pickupTimeMin,
+          pickupTimeMax: currentSettings.pickupTimeMax,
+          orderAlertEnabled: currentSettings.orderAlertEnabled,
+          sendOrderSummaryToWhatsApp: currentSettings.sendOrderSummaryToWhatsApp,
+        },
+        // 🖨️  COLUNAS PRINTNODE - SALVAR TAMBÉM NAS COLUNAS NORMALIZADAS
+        printnode_printer_id: currentSettings.printnode_printer_id || null,
+        print_mode: currentSettings.print_mode || 'auto',
+        auto_print_pix: currentSettings.auto_print_pix ?? false,
+        auto_print_card: currentSettings.auto_print_card ?? false,
+        auto_print_cash: currentSettings.auto_print_cash ?? false,
+        // 🔓 COLUNA DE ABERTURA/FECHAMENTO MANUAL - SALVAR TAMBÉM NA COLUNA NORMALIZADA
+        is_manually_open: currentSettings.isManuallyOpen,
+        // SCHEDULING
+        enable_scheduling: currentSettings.enableScheduling,
+        min_schedule_minutes: currentSettings.minScheduleMinutes,
+        max_schedule_days: currentSettings.maxScheduleDays,
+        allow_scheduling_on_closed_days: currentSettings.allowSchedulingOnClosedDays,
+        allow_scheduling_outside_business_hours: currentSettings.allowSchedulingOutsideBusinessHours,
+        respect_business_hours_for_scheduling: currentSettings.respectBusinessHoursForScheduling,
+        allow_same_day_scheduling_outside_hours: currentSettings.allowSameDaySchedulingOutsideHours,
+        updated_at: new Date().toISOString(),
+      };
+
+      console.log('📤 [UPDATE-SETTINGS] Schedule no updateData:', updateData.value.schedule);
+      console.log('🖨️  [UPDATE-SETTINGS] PrintNode Printer ID:', updateData.printnode_printer_id);
+      console.log('🖨️  [UPDATE-SETTINGS] PrintNode Mode:', updateData.print_mode);
+      console.log('🔓 [UPDATE-SETTINGS] Is Manually Open:', updateData.is_manually_open);
+      console.log('📤 [UPDATE-SETTINGS] JSON COMPLETO sendo enviado:', JSON.stringify(updateData, null, 2));
+      console.log('📤 [UPDATE-SETTINGS] Enviando COMPLETO ao Supabase...');
+
+      // 4️⃣ ENVIAR PARA SUPABASE
+      const { data, error } = await supabase
+        .from('settings')
+        .update(updateData)
+        .eq('id', 'store-settings')
+        .select(); // ✅ RETORNAR DADOS SALVOS PARA CONFIRMAR
+
+      if (error) {
+        console.error('❌ [UPDATE-SETTINGS] ERRO AO SALVAR:', error);
+        console.error('❌ [UPDATE-SETTINGS] Código de erro:', (error as any).code);
+        console.error('❌ [UPDATE-SETTINGS] Mensagem:', (error as any).message);
+        throw error;
+      }
+
+      // 5️⃣ VERIFICAR QUE REALMENTE SALVOU
+      if (data && data.length > 0) {
+        const savedData = data[0] as any;
+        const savedValue = savedData.value || {};
+        const savedSchedule = savedValue.schedule;
+        
+        console.log('✅ [UPDATE-SETTINGS] CONFIRMADO! Dados salvos no Supabase:');
+        console.log('✅ [UPDATE-SETTINGS] Schedule salvo (thursday):', savedSchedule?.thursday);
+        console.log('🖨️  [UPDATE-SETTINGS] PrintNode salvo - ID:', savedData.printnode_printer_id, ', Mode:', savedData.print_mode);
+        console.log('🔓 [UPDATE-SETTINGS] Is Manually Open salvo:', savedData.is_manually_open);
+        console.log('✅ [UPDATE-SETTINGS] Updated At:', savedData.updated_at);
+        console.log('📊 [UPDATE-SETTINGS] COMPARAÇÃO SCHEDULE:');
+        console.log('📊 Enviado thursday openTime:', updateData.value.schedule.thursday.openTime);
+        console.log('📊 Salvo thursday openTime:', savedSchedule?.thursday?.openTime);
+        console.log('📊 MATCH?', updateData.value.schedule.thursday.openTime === savedSchedule?.thursday?.openTime ? '✅ SIM' : '❌ NÃO');
+        
+        // 🖨️  VERIFICAÇÃO PRINTNODE
+        if (updateData.printnode_printer_id) {
+          console.log('📊 [UPDATE-SETTINGS] COMPARAÇÃO PRINTNODE:');
+          console.log('📊 Enviado Printer ID:', updateData.printnode_printer_id);
+          console.log('📊 Salvo Printer ID:', savedData.printnode_printer_id);
+          console.log('📊 MATCH?', updateData.printnode_printer_id === savedData.printnode_printer_id ? '✅ SIM' : '❌ NÃO');
+        }
+        
+        // 🔓 VERIFICAÇÃO IS_MANUALLY_OPEN
+        console.log('📊 [UPDATE-SETTINGS] COMPARAÇÃO IS_MANUALLY_OPEN:');
+        console.log('📊 Enviado is_manually_open:', updateData.is_manually_open);
+        console.log('📊 Salvo is_manually_open:', savedData.is_manually_open);
+        console.log('📊 MATCH?', updateData.is_manually_open === savedData.is_manually_open ? '✅ SIM' : '❌ NÃO');
+        
+        // ⚠️  SE NÃO MATCHOU, FAZER UM SELECT ADICIONAL PARA CONFIRMAR
+        if (updateData.value.schedule.thursday.openTime !== savedSchedule?.thursday?.openTime) {
+          console.warn('⚠️  [UPDATE-SETTINGS] DADOS RETORNADOS NÃO MATCHAM! Fazendo SELECT adicional...');
+          const { data: verifyData, error: verifyError } = await supabase
+            .from('settings')
+            .select('value')
+            .eq('id', 'store-settings')
+            .single();
+          
+          if (!verifyError && verifyData) {
+            const verifyValue = (verifyData as any).value || {};
+            console.log('🔍 [UPDATE-SETTINGS] SELECT de verificação:');
+            console.log('🔍 Valor no banco (thursday openTime):', verifyValue.schedule?.thursday?.openTime);
+            console.log('🔍 CONTINUA NÃO MATCHANDO?', updateData.value.schedule.thursday.openTime !== verifyValue.schedule?.thursday?.openTime ? '❌ SIM - PROBLEMA NO BANCO!' : '✅ NÃO - PODE SER RESPOSTA ATRASADA');
+          }
+        }
+      } else {
+        console.warn('⚠️  [UPDATE-SETTINGS] Supabase retornou vazio - verificar se update funcionou');
+      }
+
+      console.log('💾 [UPDATE-SETTINGS] ════════════════════════════════════════');
+    } catch (error) {
+      console.error('❌ [UPDATE-SETTINGS] EXCEÇÃO FATAL:', error);
+      throw error;
     }
   },
 
@@ -167,7 +314,17 @@ export const useSettingsStore = create<SettingsStore>()(
       settings: { ...state.settings, [key]: value },
     })),
 
+  // ✅ NOVO: Carrega settings SÓ em memória, SEM resalvar no Supabase
+  loadSettingsLocally: (newSettings) => {
+    set((state) => ({
+      settings: { ...state.settings, ...newSettings },
+    }));
+  },
+
   updateDaySchedule: (day, schedule) => {
+    // ✅ CORREÇÃO: updateDaySchedule() SÓ atualiza estado local, NÃO salva no Supabase
+    // O saveamento completo acontece em updateSettings() quando o admin clica "Salvar Alterações"
+    // Assim evitamos race condition onde updateDaySchedule() sobrescreve dados recentes
     set((state) => ({
       settings: {
         ...state.settings,
@@ -177,47 +334,6 @@ export const useSettingsStore = create<SettingsStore>()(
         },
       },
     }));
-    
-    // ✅ SINCRONIZAR para Supabase - SALVANDO O SCHEDULE COMPLETO
-    setTimeout(async () => {
-      try {
-        const { settings: currentSettings } = useSettingsStore.getState();
-        
-        // ✅ CRÍTICO: Enviar SEMPRE o schedule COMPLETO (todos os 7 dias)
-        const settingsValue = {
-          name: currentSettings.name,
-          phone: currentSettings.phone,
-          address: currentSettings.address,
-          slogan: currentSettings.slogan,
-          schedule: currentSettings.schedule, // ✅ SCHEDULE COMPLETO COM TODOS OS 7 DIAS
-          deliveryTimeMin: currentSettings.deliveryTimeMin,
-          deliveryTimeMax: currentSettings.deliveryTimeMax,
-          pickupTimeMin: currentSettings.pickupTimeMin,
-          pickupTimeMax: currentSettings.pickupTimeMax,
-          isManuallyOpen: currentSettings.isManuallyOpen,
-          orderAlertEnabled: currentSettings.orderAlertEnabled,
-          sendOrderSummaryToWhatsApp: currentSettings.sendOrderSummaryToWhatsApp,
-        };
-
-        console.log('💾 [UPDATE-DAY-SCHEDULE] Salvando schedule COMPLETO para dia:', day, {
-          scheduleCompleto: settingsValue.schedule,
-        });
-
-        // ✅ OPÇÃO B: Atualizar com colunas normalizadas + JSON
-        await supabase
-          .from('settings')
-          .update({ 
-            value: settingsValue,
-            is_manually_open: currentSettings.isManuallyOpen,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', 'store-settings');
-
-        console.log('✅ Schedule COMPLETO sincronizado no Supabase para', day);
-      } catch (error) {
-        console.error('❌ Erro ao sincronizar schedule:', error);
-      }
-    }, 100);
   },
 
   toggleManualOpen: () =>
@@ -334,44 +450,35 @@ export const useSettingsStore = create<SettingsStore>()(
   syncSettingsToSupabase: async () => {
     try {
       const { settings } = get();
-      
-      // ✅ OPÇÃO B: Preparar o objeto para salvar no campo 'value' (dados complexos)
-      const settingsValue = {
-        name: settings.name,
-        phone: settings.phone,
-        address: settings.address,
-        slogan: settings.slogan,
-        schedule: settings.schedule,
-        deliveryTimeMin: settings.deliveryTimeMin,
-        deliveryTimeMax: settings.deliveryTimeMax,
-        pickupTimeMin: settings.pickupTimeMin,
-        pickupTimeMax: settings.pickupTimeMax,
-        isManuallyOpen: settings.isManuallyOpen,
-        orderAlertEnabled: settings.orderAlertEnabled,
-        sendOrderSummaryToWhatsApp: settings.sendOrderSummaryToWhatsApp,
+
+      const updateData: any = {
+        value: {
+          name: settings.name,
+          phone: settings.phone,
+          address: settings.address,
+          slogan: settings.slogan,
+          schedule: settings.schedule,
+          isManuallyOpen: settings.isManuallyOpen,
+          deliveryTimeMin: settings.deliveryTimeMin,
+          deliveryTimeMax: settings.deliveryTimeMax,
+          pickupTimeMin: settings.pickupTimeMin,
+          pickupTimeMax: settings.pickupTimeMax,
+          orderAlertEnabled: settings.orderAlertEnabled,
+          sendOrderSummaryToWhatsApp: settings.sendOrderSummaryToWhatsApp,
+        },
+        enable_scheduling: settings.enableScheduling,
+        min_schedule_minutes: settings.minScheduleMinutes,
+        max_schedule_days: settings.maxScheduleDays,
+        allow_scheduling_on_closed_days: settings.allowSchedulingOnClosedDays,
+        allow_scheduling_outside_business_hours: settings.allowSchedulingOutsideBusinessHours,
+        respect_business_hours_for_scheduling: settings.respectBusinessHoursForScheduling,
+        allow_same_day_scheduling_outside_hours: settings.allowSameDaySchedulingOutsideHours,
+        updated_at: new Date().toISOString(),
       };
 
-      // ✅ Atualizar em colunas normalizadas + JSON
       const { error } = await supabase
         .from('settings')
-        .update({
-          value: settingsValue,
-          // Colunas normalizadas
-          printnode_printer_id: settings.printnode_printer_id || null,
-          print_mode: settings.print_mode || 'auto',
-          auto_print_pix: settings.auto_print_pix || false,
-          auto_print_card: settings.auto_print_card || false,
-          auto_print_cash: settings.auto_print_cash || false,
-          enable_scheduling: settings.enableScheduling ?? false,
-          min_schedule_minutes: settings.minScheduleMinutes ?? 30,
-          max_schedule_days: settings.maxScheduleDays ?? 7,
-          allow_scheduling_on_closed_days: settings.allowSchedulingOnClosedDays ?? false,
-          allow_scheduling_outside_business_hours: settings.allowSchedulingOutsideBusinessHours ?? false,
-          respect_business_hours_for_scheduling: settings.respectBusinessHoursForScheduling ?? true,
-          allow_same_day_scheduling_outside_hours: settings.allowSameDaySchedulingOutsideHours ?? false,
-          is_manually_open: settings.isManuallyOpen ?? true,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', 'store-settings');
 
       if (error) {
@@ -379,16 +486,11 @@ export const useSettingsStore = create<SettingsStore>()(
         return { success: false, message: 'Erro ao sincronizar configurações' };
       }
 
-      console.log('✅ Settings sincronizados com Supabase (OPÇÃO B)');
+      console.log('✅ Settings sincronizados com Supabase com TODOS os dados');
       return { success: true, message: 'Configurações sincronizadas com sucesso!' };
     } catch (error) {
       console.error('❌ Erro ao sincronizar settings:', error);
       return { success: false, message: 'Erro ao sincronizar configurações' };
     }
   },
-    }),
-    {
-      name: 'forneiro-eden-settings',
-    }
-  )
-);
+}));

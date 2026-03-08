@@ -7,8 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
  * E força atualização dos dados no cliente em tempo real
  */
 export function useSettingsUpdateListener() {
-  const updateSettings = useSettingsStore((s) => s.updateSettings);
-  const { updateSettings: realtimeUpdateSettings } = useSettingsStore();
+  const loadSettingsLocally = useSettingsStore((s) => s.loadSettingsLocally);
 
   useEffect(() => {
     const handleSettingsUpdate = async () => {
@@ -52,7 +51,8 @@ export function useSettingsUpdateListener() {
           });
 
           // Atualizar o store com os novos dados
-          await updateSettings({
+          // ✅ NOVO: Usar loadSettingsLocally (SÓ em memória, SEM resalvar)
+          loadSettingsLocally({
             name: valueJson.name || 'Forneiro Éden',
             phone: valueJson.phone || '(11) 99999-9999',
             address: valueJson.address || 'Rua das Pizzas, 123 - Centro',
@@ -116,5 +116,5 @@ export function useSettingsUpdateListener() {
       window.removeEventListener('storage', handleStorageChange);
       clearInterval(checkInterval);
     };
-  }, [updateSettings]);
+  }, [loadSettingsLocally]);
 }

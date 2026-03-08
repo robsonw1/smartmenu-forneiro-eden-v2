@@ -125,6 +125,7 @@ const AdminDashboard = () => {
   const changePassword = useSettingsStore((s) => s.changePassword);
   const updateDaySchedule = useSettingsStore((s) => s.updateDaySchedule);
   const isStoreOpen = useSettingsStore((s) => s.isStoreOpen);
+  const loadSettingsFromSupabase = useSettingsStore((s) => s.loadSettingsFromSupabase);
 
   // Neighborhoods store
   const neighborhoods = useNeighborhoodsStore((s) => s.neighborhoods);
@@ -179,16 +180,50 @@ const AdminDashboard = () => {
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
   const [orderSort, setOrderSort] = useState<'newest' | 'oldest'>('newest');
 
-  // ✅ CORRIGIDO: Sincronizar settingsForm APENAS se NÃO há edições pendentes
-  // Isso previne que realtime sobrescreva o que admin está editando
+  // ✅ NOVA SOLUÇÃO: Sincronizar settingsForm APENAS no mount
+  // NÃO sincroniza enquanto admin está editando (mesmo que realtime traga atualizações)
+  // Isso garante que edições do admin não sejam perdidas
+  // ⚡ CRÍTICO: Sincronizar settingsForm QUANDO `settings` do Zustand mudar
+  // Isso garante que quando `loadSettingsFromSupabase()` carrega dados, o formulário mostra
+  // Se o admin está editando (hasUnsavedChanges=true), NÃO sobrescreve as edições
   useEffect(() => {
     if (!hasUnsavedChanges) {
-      console.log('🔄 [ADMIN] Atualizando settingsForm com dados do Supabase');
+      console.log('🔄 [ADMIN-SYNC] Settings do Zustand mudou, sincronizando settingsForm');
       setSettingsForm(settings);
-    } else {
-      console.log('⚠️  [ADMIN] Ignorando atualização - há edições pendentes não salvas');
     }
-  }, [settings, hasUnsavedChanges]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings]); // Apenas settings, hasUnsavedChanges é verificado dentro do if
+
+  // ✅ Função auxiliar para recarregar manualmente (botão "Cancelar")
+  const handleReloadSettings = () => {
+    console.log('🔄 [ADMIN-RELOAD] Admin clicou em "Cancelar" - recarregando settings do Zustand');
+    setSettingsForm(settings);
+    setHasUnsavedChanges(false);
+    toast.info('Edições descartadas. Valores originais carregados.');
+  };
+
+  // ✅ Função auxiliar para atualizar settingsForm E marcar como não salvo
+  const updateSettingsFormWithFlag = (updates: Partial<typeof settingsForm>) => {
+    setSettingsForm(prev => ({ ...prev, ...updates }));
+    setHasUnsavedChanges(true);
+  };
+
+  // 📲 Função para notificar OUTRAS abas do mesmo navegador que houve alteração
+  const notifyOtherTabs = (data: any) => {
+    try {
+      const channel = new BroadcastChannel('admin-settings');
+      channel.postMessage({
+        type: 'SETTINGS_UPDATED',
+        data: data,
+        timestamp: Date.now(),
+        source: 'admin-' + Math.random().toString(36).substr(2, 9),
+      });
+      channel.close();
+      console.log('📲 [NOTIFY-TABS] Enviado broadcast para outras abas');
+    } catch (error) {
+      console.warn('⚠️  BroadcastChannel não disponível neste navegador:', error);
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('admin-token');
@@ -226,6 +261,123 @@ const AdminDashboard = () => {
       subscription.unsubscribe();
     };
   }, [syncOrdersFromSupabase]);
+
+  // ⚡ NOVA: Sincronizar settings em tempo real quando outro gerente faz mudanças
+  // Sem interromper edições do gerente atual
+  useEffect(() => {
+    const token = localStorage.getItem('admin-token');
+    if (!token) return;
+
+    console.log('📡 [ADMIN-SUBSCRIBE] Iniciando subscription para mudanças em settings...');
+
+    const settingsChannel = supabase
+      .channel('public:settings')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'settings', filter: 'id=eq.store-settings' },
+        async (payload) => {
+          console.log('🔔 [ADMIN-SUBSCRIBE] Mudan ça em settings detectada! Outro gerente salvou dados.');
+          console.log('🔔 [ADMIN-SUBSCRIBE] Payload:', payload);
+          
+          // ⚠️  SÓ sincronizar se o gerente this NÃO tem edições não salvas
+          if (hasUnsavedChanges) {
+            console.warn('⚠️  [ADMIN-SUBSCRIBE] Gerente tem edições em progresso - NÃO sobrescrever');
+            toast.info('💡 Outro gerente fez mudanças. Salve suas edições ou Cancele para ver as mudanças.');
+            return;
+          }
+
+          // Recarregar settings do Supabase
+          console.log('🔄 [ADMIN-SUBSCRIBE] Recarregando settings do Supabase...');
+          await loadSettingsFromSupabase();
+
+          // Sincronizar settingsForm COM os dados carregados
+          const latestSettings = useSettingsStore.getState();
+          setSettingsForm(latestSettings.settings);
+          
+          console.log('✅ [ADMIN-SUBSCRIBE] settingsForm sincronizado com mudanças do outro gerente');
+          console.log('✅ [ADMIN-SUBSCRIBE] Nova schedule (thursday):', latestSettings.settings.schedule.thursday);
+          
+          // Toast silencioso (apenas notifica, não interrompe)
+          toast.success('📡 Configurações sincronizadas de outro gerente.', { duration: 2000 });
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 [ADMIN-SUBSCRIBE] Subscription status:', status);
+      });
+
+    return () => {
+      settingsChannel.unsubscribe();
+    };
+  }, [hasUnsavedChanges, loadSettingsFromSupabase]);
+
+  // ⚡ NOVA: Sincronizar entre múltiplas abas do MESMO navegador
+  // Quando uma aba salva (escreve em localStorage 'admin-settings-updated'),
+  // outras abas detectam via evento 'storage' e sincronizam
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'admin-settings-updated') {
+        console.log('📲 [MULTI-TAB-SYNC] Outra aba salvou configurações!');
+        
+        // Só sincronizar se NÃO tem edições em progresso
+        if (hasUnsavedChanges) {
+          console.warn('⚠️  [MULTI-TAB-SYNC] Aba atual tem edições em progresso - NÃO sobrescrever');
+          return;
+        }
+
+        console.log('🔄 [MULTI-TAB-SYNC] Recarregando settings...');
+        // Recarregar do Zustand (que foi atualizado via realtime subscription)
+        const currentState = useSettingsStore.getState();
+        setSettingsForm(currentState.settings);
+        
+        console.log('✅ [MULTI-TAB-SYNC] settingsForm sincronizado entre abas');
+      }
+    };
+
+    // Escutar eventos de storage de outras abas
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [hasUnsavedChanges]);
+
+  // ⚡ NOVA: Sincronizar entre múltiplas abas do MESMO navegador
+  // Usar um evento customizado para sincronizar DENTRO da mesma aba (broadcast channel)
+  // Isso funciona para múltiplas abas mesmo que localStorage não capture tudo
+  useEffect(() => {
+    try {
+      // BroadcastChannel é mais moderno e confiável para comunicação entre abas
+      const channel = new BroadcastChannel('admin-settings');
+      
+      const handleMessage = (event: MessageEvent) => {
+        if (event.data?.type === 'SETTINGS_UPDATED') {
+          console.log('📲 [BROADCAST-SYNC] Outra aba enviou atualização via BroadcastChannel');
+          console.log('📲 [BROADCAST-SYNC] Dados recebidos:', event.data);
+          
+          // Só sincronizar se NÃO tem edições em progresso
+          if (hasUnsavedChanges) {
+            console.warn('⚠️  [BROADCAST-SYNC] Edições em progresso - NÃO sobrescrever');
+            return;
+          }
+
+          console.log('🔄 [BROADCAST-SYNC] Recarregando settings...');
+          const currentState = useSettingsStore.getState();
+          setSettingsForm(currentState.settings);
+          
+          console.log('✅ [BROADCAST-SYNC] settingsForm sincronizado entre abas');
+        }
+      };
+
+      channel.addEventListener('message', handleMessage);
+      
+      return () => {
+        channel.removeEventListener('message', handleMessage);
+        channel.close();
+      };
+    } catch (error) {
+      console.warn('⚠️  BroadcastChannel não disponível neste navegador');
+    }
+  }, [hasUnsavedChanges]);
 
   const handleLogout = () => {
     localStorage.removeItem('admin-token');
@@ -313,21 +465,6 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Erro ao sincronizar ativação do bairro:', error);
       toast.error('Erro ao sincronizar bairro');
-    }
-  };
-
-  // Atualizar horário e sincronizar com Supabase
-  const handleScheduleChange = async (day: any, updates: any) => {
-    try {
-      const newSchedule = {
-        ...settingsForm.schedule,
-        [day]: { ...settingsForm.schedule[day], ...updates },
-      };
-      setSettingsForm({ ...settingsForm, schedule: newSchedule });
-      await updateSettings({ ...settingsForm, schedule: newSchedule });
-    } catch (error) {
-      console.error('Erro ao sincronizar horário:', error);
-      toast.error('Erro ao salvar horário');
     }
   };
 
@@ -548,12 +685,10 @@ const AdminDashboard = () => {
   }, [orders, dateRange, orderStatusFilter, orderSort]);
 
   const handleSaveSettings = async () => {
-    // ✅ CRÍTICO: Usar o settingsForm (que tem as edições locais do admin)
-    // E garantir que o schedule SEMPRE tem todos os 7 dias
-    const finalSettingsToSave = {
-      ...settingsForm,
-      // ✅ SEMPRE validar que schedule tem todos os 7 dias
-      schedule: settingsForm.schedule || {
+    try {
+      // ✅ CRÍTICO: Usar o settingsForm (que tem as edições locais do admin)
+      // Inicializar com defaults se estiver vazio (proteção extra)
+      const defaultSchedule = {
         monday: { isOpen: false, openTime: '18:00', closeTime: '23:00' },
         tuesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
         wednesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
@@ -561,24 +696,79 @@ const AdminDashboard = () => {
         friday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
         saturday: { isOpen: true, openTime: '17:00', closeTime: '00:00' },
         sunday: { isOpen: true, openTime: '17:00', closeTime: '23:00' },
-      },
-    };
-    
-    console.log('💾 [ADMIN] Salvando configurações FINAIS com schedule COMPLETO:', {
-      phone: finalSettingsToSave.phone,
-      sendOrderSummaryToWhatsApp: finalSettingsToSave.sendOrderSummaryToWhatsApp,
-      scheduleCompleto: finalSettingsToSave.schedule,
-    });
-    
-    // Atualizar com TODOS os settings (incluindo schedule COMPLETO)
-    await updateSettings(finalSettingsToSave);
-    
-    // Force settings refresh in CheckoutModal
-    localStorage.setItem('settings-updated', Date.now().toString());
-    setHasUnsavedChanges(false); // ✅ Limpar flag de edições pendentes após salvar
-    console.log('✅ [ADMIN] Configurações FINAIS salvas com schedule COMPLETO:', finalSettingsToSave.schedule);
-    
-    toast.success('Configurações salvas com sucesso!');
+      };
+
+      // Validar schedule: se algum dia está faltando, add o default
+      const validatedSchedule = { ...defaultSchedule };
+      if (settingsForm.schedule) {
+        Object.keys(settingsForm.schedule).forEach((day) => {
+          if (settingsForm.schedule[day]) {
+            validatedSchedule[day] = { ...settingsForm.schedule[day] };
+          }
+        });
+      }
+
+      const finalSettingsToSave = {
+        ...settingsForm,
+        schedule: validatedSchedule,
+      };
+      
+      console.log('💾 [ADMIN-SAVE] ════════════════════════════════════════');
+      console.log('💾 [ADMIN-SAVE] INICIANDO SALVAMENTO DO ADMIN');
+      console.log('💾 [ADMIN-SAVE] Schedule que será salvo:', finalSettingsToSave.schedule);
+      console.log('💾 [ADMIN-SAVE] thursday que será salvo:', finalSettingsToSave.schedule.thursday);
+      console.log('💾 [ADMIN-SAVE] Enviando para updateSettings()...');
+      
+      // Atualizar com TODOS os settings (incluindo schedule VALIDADO)
+      await updateSettings(finalSettingsToSave);
+      
+      console.log('✅ [ADMIN-SAVE] updateSettings() completou com sucesso!');
+      
+      // 🔍 STEP EXTRA: VERIFICAR QUE FOI REALMENTE SALVO no Supabase
+      console.log('🔍 [ADMIN-SAVE] Aguardando 1 segundo e recarregando do Supabase para VERIFICAÇÃO...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      await loadSettingsFromSupabase();
+      
+      // ⚡ CRÍTICO: Sincronizar settingsForm com os dados que acabaram de ser carregados
+      // Assim o formulário mostra os dados salvos, não os antigos
+      const reloadedState = useSettingsStore.getState();
+      setSettingsForm(reloadedState.settings);
+      console.log('✅ [ADMIN-SAVE] settingsForm sincronizado com dados carregados do Supabase');
+      
+      // Comparar: o que foi enviado vs. o que está no estado agora
+      const currentState = useSettingsStore.getState();
+      const savedThursday = currentState.settings.schedule.thursday;
+      const sentThursday = finalSettingsToSave.schedule.thursday;
+      
+      console.log('📊 [ADMIN-SAVE] VERIFICATION RESULTADO:');
+      console.log('📊 Enviado thursday:', sentThursday);
+      console.log('📊 Agora no estado thursday:', savedThursday);
+      console.log('📊 MATCH?', JSON.stringify(sentThursday) === JSON.stringify(savedThursday) ? '✅ PERFEITO' : '❌ NÃO CORRESPONDENTE');
+      
+      if (JSON.stringify(sentThursday) !== JSON.stringify(savedThursday)) {
+        console.error('❌ [ADMIN-SAVE] ALERTA: Os dados salvos não correspondem aos enviados!');
+        toast.error('⚠️  Aviso: dados podem não ter sido salvos corretamente. Tente novamente.');
+      }
+      
+      // Force settings refresh em todos os contextos IMEDIATAMENTE
+      localStorage.setItem('admin-settings-updated', Date.now().toString());
+      
+      // 📲 Notificar OUTRAS abas do mesmo navegador via BroadcastChannel
+      notifyOtherTabs(finalSettingsToSave);
+      
+      // MARCAR COMO NÃO SALVO IMEDIATAMENTE (não usar setTimeout)
+      setHasUnsavedChanges(false);
+      
+      console.log('✅ [ADMIN-SAVE] Estado marcado como salvo');
+      console.log('✅ [ADMIN-SAVE] Outras abas notificadas');
+      console.log('✅ [ADMIN-SAVE] ════════════════════════════════════════');
+      
+      toast.success('✅ Configurações salvas e sincronizadas em tempo real!');
+    } catch (error) {
+      console.error('❌ [ADMIN-SAVE] Erro ao salvar:', error);
+      toast.error('Erro ao salvar configurações. Tente novamente.');
+    }
   };
 
   const handleChangePassword = () => {
@@ -596,7 +786,7 @@ const AdminDashboard = () => {
   };
 
   const handleDayScheduleChange = (day: string, updates: any) => {
-    // ✅ Atualizar settingsForm localmente PRIMEIRO (antes de enviar para Zustand)
+    // ✅ Atualizar settingsForm localmente PRIMEIRO
     setSettingsForm(prevForm => ({
       ...prevForm,
       schedule: {
@@ -605,9 +795,6 @@ const AdminDashboard = () => {
       },
     }));
     setHasUnsavedChanges(true);
-    
-    // Depois sincronizar para Zustand (que vai para Supabase)
-    updateDaySchedule(day as any, updates);
     toast.info(`✏️ Alteração em ${dayLabels[day]} - Clique em "Salvar Alterações" para confirmar`);
   };
 
@@ -685,7 +872,7 @@ const AdminDashboard = () => {
                   alt="Forneiro Éden" 
                   className="w-12 h-12 md:w-14 md:h-14 rounded-full object-cover border-2 border-primary"
                 />
-                <span className="font-display font-bold text-lg">Admin</span>
+                <span className="font-heading font-bold text-lg">Admin</span>
               </div>
             </div>
 
@@ -714,7 +901,7 @@ const AdminDashboard = () => {
       </header>
 
       <div className="container mx-auto px-4 py-8">
-        <h1 className="font-display text-2xl md:text-3xl font-bold mb-8">
+        <h1 className="font-heading text-2xl md:text-3xl font-bold mb-8">
           Painel Administrativo
         </h1>
 
@@ -1264,8 +1451,14 @@ const AdminDashboard = () => {
           <TabsContent value="settings">
             <div className="grid gap-6">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle>Dados do Estabelecimento</CardTitle>
+                  {hasUnsavedChanges && (
+                    <div className="flex items-center gap-2">
+                      <div className="animate-pulse w-2 h-2 rounded-full bg-amber-500"></div>
+                      <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">Edições não salvas</span>
+                    </div>
+                  )}
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1274,7 +1467,7 @@ const AdminDashboard = () => {
                       <Input 
                         id="store-name" 
                         value={settingsForm.name}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, name: e.target.value })}
+                        onChange={(e) => updateSettingsFormWithFlag({ name: e.target.value })}
                         className="mt-1" 
                       />
                     </div>
@@ -1288,7 +1481,7 @@ const AdminDashboard = () => {
                           let formatted = cleaned;
                           if (cleaned.length > 2) formatted = `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
                           if (cleaned.length > 7) formatted = `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
-                          setSettingsForm({ ...settingsForm, phone: formatted });
+                          updateSettingsFormWithFlag({ phone: formatted });
                         }}
                         placeholder="(11) 99999-9999"
                         className="mt-1" 
@@ -1301,7 +1494,7 @@ const AdminDashboard = () => {
                     <Input 
                       id="store-address" 
                       value={settingsForm.address}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, address: e.target.value })}
+                      onChange={(e) => updateSettingsFormWithFlag({ address: e.target.value })}
                       className="mt-1" 
                     />
                   </div>
@@ -1311,7 +1504,7 @@ const AdminDashboard = () => {
                     <Input 
                       id="store-slogan" 
                       value={settingsForm.slogan || ''}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, slogan: e.target.value })}
+                      onChange={(e) => updateSettingsFormWithFlag({ slogan: e.target.value })}
                       placeholder="Ex: A Pizza mais recheada da cidade 🇮🇹"
                       className="mt-1" 
                     />
@@ -1363,14 +1556,14 @@ const AdminDashboard = () => {
                         <Input 
                           type="number"
                           value={settingsForm.deliveryTimeMin}
-                          onChange={(e) => setSettingsForm({ ...settingsForm, deliveryTimeMin: parseInt(e.target.value) || 0 })}
+                          onChange={(e) => updateSettingsFormWithFlag({ deliveryTimeMin: parseInt(e.target.value) || 0 })}
                           className="w-20" 
                         />
                         <span className="self-center">–</span>
                         <Input 
                           type="number"
                           value={settingsForm.deliveryTimeMax}
-                          onChange={(e) => setSettingsForm({ ...settingsForm, deliveryTimeMax: parseInt(e.target.value) || 0 })}
+                          onChange={(e) => updateSettingsFormWithFlag({ deliveryTimeMax: parseInt(e.target.value) || 0 })}
                           className="w-20" 
                         />
                       </div>
@@ -1381,14 +1574,14 @@ const AdminDashboard = () => {
                         <Input 
                           type="number"
                           value={settingsForm.pickupTimeMin}
-                          onChange={(e) => setSettingsForm({ ...settingsForm, pickupTimeMin: parseInt(e.target.value) || 0 })}
+                          onChange={(e) => updateSettingsFormWithFlag({ pickupTimeMin: parseInt(e.target.value) || 0 })}
                           className="w-20" 
                         />
                         <span className="self-center">–</span>
                         <Input 
                           type="number"
                           value={settingsForm.pickupTimeMax}
-                          onChange={(e) => setSettingsForm({ ...settingsForm, pickupTimeMax: parseInt(e.target.value) || 0 })}
+                          onChange={(e) => updateSettingsFormWithFlag({ pickupTimeMax: parseInt(e.target.value) || 0 })}
                           className="w-20" 
                         />
                       </div>
@@ -1437,7 +1630,7 @@ const AdminDashboard = () => {
                     <div className="space-y-3">
                       <p className="text-sm font-semibold text-muted-foreground">Horários por Dia da Semana</p>
                       {dayOrder.map((day) => {
-                        const schedule = settings.schedule[day];
+                        const schedule = settingsForm.schedule[day];
                         if (!schedule) return null;
                         return (
                           <div 
@@ -1485,9 +1678,23 @@ const AdminDashboard = () => {
                     </div>
                   </div>
 
-                  <Button className="btn-cta" onClick={handleSaveSettings}>
-                    Salvar Alterações
-                  </Button>
+                  <div className="flex gap-3">
+                    <Button 
+                      className="btn-cta" 
+                      onClick={handleSaveSettings}
+                      disabled={!hasUnsavedChanges}
+                    >
+                      ✅ Salvar Alterações
+                    </Button>
+                    {hasUnsavedChanges && (
+                      <Button 
+                        variant="outline" 
+                        onClick={handleReloadSettings}
+                      >
+                        ❌ Cancelar
+                      </Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
 

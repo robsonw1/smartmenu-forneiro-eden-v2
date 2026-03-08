@@ -2,14 +2,16 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { TrendingUp, Gift, Users, Award } from 'lucide-react';
+import { TrendingUp, Gift, Users, Award, MessageCircle, Download } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface FaithfulCustomer {
   id: string;
   email: string;
   name: string;
+  phone: string;
   totalPoints: number;
   totalSpent: number;
   totalPurchases: number;
@@ -62,6 +64,7 @@ export function FaithfulCustomersAdmin() {
         id: c.id,
         email: c.email,
         name: c.name || 'Sem nome',
+        phone: c.phone || '',
         totalPoints: c.total_points || 0,
         totalSpent: c.total_spent || 0,
         totalPurchases: c.total_purchases || 0,
@@ -101,6 +104,34 @@ export function FaithfulCustomersAdmin() {
     if (totalSpent < 500) return { label: 'Bronze', color: 'bg-amber-100 text-amber-800' };
     if (totalSpent < 2000) return { label: 'Prata', color: 'bg-slate-100 text-slate-800' };
     return { label: 'Ouro', color: 'bg-yellow-100 text-yellow-800' };
+  };
+
+  const openWhatsApp = (phone: string) => {
+    // Remove caracteres não numéricos
+    const cleanPhone = phone.replace(/\D/g, '');
+    // Adiciona código do país se não tiver
+    const fullPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+    window.open(`https://wa.me/${fullPhone}`, '_blank');
+  };
+
+  const exportToCSV = () => {
+    const csvContent = [
+      ['Nome', 'Email', 'Telefone'],
+      ...customers.map(customer => [
+        customer.name,
+        customer.email,
+        customer.phone
+      ])
+    ]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `clientes-fieis-${new Date().toISOString().split('T')[0]}.csv`);
+    link.click();
   };
 
   return (
@@ -185,8 +216,18 @@ export function FaithfulCustomersAdmin() {
 
       {/* Tabela de Clientes Fiéis */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Clientes Mais Fiéis</CardTitle>
+          <Button 
+            onClick={exportToCSV} 
+            variant="outline" 
+            size="sm"
+            disabled={customers.length === 0}
+            className="gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Exportar CSV
+          </Button>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -206,6 +247,7 @@ export function FaithfulCustomersAdmin() {
                   <TableRow>
                     <TableHead>Nome</TableHead>
                     <TableHead>Email</TableHead>
+                    <TableHead>Telefone</TableHead>
                     <TableHead className="text-right">Compras</TableHead>
                     <TableHead className="text-right">Total Gasto</TableHead>
                     <TableHead className="text-right">Pontos</TableHead>
@@ -220,6 +262,20 @@ export function FaithfulCustomersAdmin() {
                       <TableRow key={customer.id}>
                         <TableCell className="font-medium">{customer.name}</TableCell>
                         <TableCell className="text-sm">{customer.email}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm">{customer.phone}</span>
+                            {customer.phone && (
+                              <button
+                                onClick={() => openWhatsApp(customer.phone)}
+                                className="p-1 hover:bg-green-100 rounded transition-colors"
+                                title="Abrir WhatsApp"
+                              >
+                                <MessageCircle className="w-4 h-4 text-green-600" />
+                              </button>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-right">{customer.totalPurchases}</TableCell>
                         <TableCell className="text-right font-semibold">
                           {formatPrice(customer.totalSpent)}

@@ -2,15 +2,17 @@ import { useEffect } from 'react';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 /**
- * Hook que verifica e corrige schedule incompleto na inicialização
- * Se o schedule tem < 7 dias, preenche os days faltantes com defaults
+ * Hook que verifica schedule na inicialização
+ * Se o schedule está incompleto (< 7 dias), carrega em memória sem sobrescrever Supabase
+ * ✅ CORREÇÃO: Usa loadSettingsLocally() em vez de updateSettings() para NÃO 
+ *    sobrescrever os horários que o admin configurou no Supabase
  */
 export function useScheduleSync() {
   const settings = useSettingsStore((s) => s.settings);
-  const updateSettings = useSettingsStore((s) => s.updateSettings);
+  const loadSettingsLocally = useSettingsStore((s) => s.loadSettingsLocally);
 
   useEffect(() => {
-    const checkAndFixSchedule = async () => {
+    const checkAndFixSchedule = () => {
       const schedule = settings.schedule;
       
       if (!schedule) {
@@ -31,7 +33,7 @@ export function useScheduleSync() {
       if (missingDays.length > 0) {
         console.warn(`⚠️  [SCHEDULE-SYNC] Schedule incompleto! Faltam ${missingDays.length} dias:`, missingDays);
         
-        // Corrigir o schedule com os days faltantes
+        // Corrigir o schedule com os days faltantes (SÓ em memória, SEM salvar no Supabase)
         const correctedSchedule = { ...schedule };
         
         const defaultDaySchedule = {
@@ -53,13 +55,14 @@ export function useScheduleSync() {
           console.log(`✅ [SCHEDULE-SYNC] Adicionando ${day}:`, correctedSchedule[dayKey]);
         }
 
-        // Atualizar settings com schedule completo
-        console.log('💾 [SCHEDULE-SYNC] Salvando schedule CORRIGIDO:', correctedSchedule);
-        await updateSettings({
+        // ✅ CORREÇÃO: Usar loadSettingsLocally() em vez de updateSettings()
+        // Isso carrega os dados em memória SEM sobrescrever o Supabase
+        console.log('💾 [SCHEDULE-SYNC] Carregando schedule CORRIGIDO em memória (SEM salvar no Supabase):', correctedSchedule);
+        loadSettingsLocally({
           schedule: correctedSchedule as any,
         });
 
-        console.log('✅ [SCHEDULE-SYNC] Schedule corrigido e sincronizado com sucesso!');
+        console.log('✅ [SCHEDULE-SYNC] Schedule corrigido em memória com sucesso!');
       } else {
         console.log('✅ [SCHEDULE-SYNC] Schedule PERFEITO - todos os 7 dias presentes');
       }

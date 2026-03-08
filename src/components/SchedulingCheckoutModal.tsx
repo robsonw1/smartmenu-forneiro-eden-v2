@@ -1518,7 +1518,7 @@ export function SchedulingCheckoutModal() {
         <ScrollArea className="max-h-[90vh]">
           <div className="p-6">
             <DialogHeader>
-              <DialogTitle className="font-display text-xl">
+              <DialogTitle className="font-heading text-xl">
                 {step === 'confirmation' ? 'Pedido Agendado com Sucesso! 🗓️' : 
                  step === 'pix' ? 'Pagamento PIX' : 
                  'Agendar Pedido'}
@@ -2305,7 +2305,7 @@ export function SchedulingCheckoutModal() {
                     <CheckCircle className="w-10 h-10 text-primary" />
                   </div>
                   
-                  <h3 className="font-display text-2xl font-bold mb-2">
+                  <h3 className="font-heading text-2xl font-bold mb-2">
                     {lastOrderPayload?.isScheduled ? 'Pedido Agendado! 🗓️' : 'Pedido Confirmado!'}
                   </h3>
                   

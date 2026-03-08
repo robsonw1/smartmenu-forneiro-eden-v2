@@ -14,7 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        display: ['"Playfair Display"', 'serif'],
+        display: ['"Quicksand"', 'sans-serif'],
+        heading: ['"Quicksand"', 'sans-serif'],
         sans: ['Inter', 'sans-serif'],
       },
       colors: {

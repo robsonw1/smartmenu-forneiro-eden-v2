@@ -359,7 +359,7 @@ export function ProductModal() {
                     )}
                   </div>
                   
-                  <DialogTitle className="font-display text-xl md:text-2xl">
+                  <DialogTitle className="font-heading text-xl md:text-2xl">
                     {selectedProduct.name}
                   </DialogTitle>
                   

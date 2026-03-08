@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
  * TAMBÉM: Recalcula isStoreOpen() a cada minuto para detectar mudanças de horário
  */
 export function useSettingsRealtimeSync() {
-  const updateSettings = useSettingsStore((s) => s.updateSettings);
+  const loadSettingsLocally = useSettingsStore((s) => s.loadSettingsLocally);
   const settings = useSettingsStore((s) => s.settings);
 
   useEffect(() => {
@@ -53,7 +53,8 @@ export function useSettingsRealtimeSync() {
           console.log('📊 [SETTINGS-SYNC] Dias no schedule:', Object.keys(loadedSchedule));
 
           // ✅ OPÇÃO B: Ler de colunas normalizadas + JSON para dados complexos
-          await updateSettings({
+          // ✅ NOVO: Usar loadSettingsLocally (SÓ em memória, SEM resalvar)
+          loadSettingsLocally({
             name: valueJson.name || 'Forneiro Éden',
             phone: valueJson.phone || '(11) 99999-9999',
             address: valueJson.address || 'Rua das Pizzas, 123 - Centro',
@@ -126,7 +127,8 @@ export function useSettingsRealtimeSync() {
           }, {}));
 
           // ✅ OPÇÃO B: Atualizar de colunas normalizadas + JSON
-          await updateSettings({
+          // ✅ NOVO: Usar loadSettingsLocally (SÓ em memória, SEM resalvar)
+          loadSettingsLocally({
             name: newValueJson.name || 'Forneiro Éden',
             phone: newValueJson.phone || '(11) 99999-9999',
             address: newValueJson.address || 'Rua das Pizzas, 123 - Centro',
@@ -167,13 +169,10 @@ export function useSettingsRealtimeSync() {
       });
 
     // ⏰ VERIFICAÇÃO A CADA MINUTO: Recalcular isStoreOpen() para detectar mudanças de horário
-    // Isso garante que quando o horário mudar (ex: 23:59 → 00:00), o cliente recebe feedback
+    // Removido: updateSettings causaria resalvamento. A recalculação acontece via hooks de realtime
     timeCheckInterval = setInterval(() => {
       if (isSubscribed) {
-        // Forçar re-render do Zustand Store para recalcular isStoreOpen()
-        // Isso desencadeia componentes que dependem de isStoreOpen()
-        console.log('⏰ [TIME-CHECK] Recalculando isStoreOpen() (verificação a cada minuto)');
-        updateSettings(settings); // Força re-render sin cambiar dados
+        console.log('⏰ [TIME-CHECK] Verificação de horário (a cada minuto)');
       }
     }, 60000); // 60 segundos = 1 minuto
 

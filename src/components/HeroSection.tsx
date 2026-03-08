@@ -21,7 +21,7 @@ export function HeroSection() {
           </div>
 
           {/* Main Title */}
-          <h1 className="font-display text-4xl md:text-6xl lg:text-7xl font-bold text-foreground mb-4">
+          <h1 className="font-heading text-4xl md:text-6xl lg:text-7xl font-bold text-foreground mb-4">
             Sabor que vem do
             <span className="text-gradient-warm block mt-2">forno para sua mesa</span>
           </h1>

@@ -76,7 +76,7 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
 
       {/* Content */}
       <div className="p-4">
-        <h3 className="font-display text-lg font-semibold text-foreground mb-1 line-clamp-1">
+        <h3 className="font-heading text-lg font-semibold text-foreground mb-1 line-clamp-1">
           {product.name}
         </h3>
         
