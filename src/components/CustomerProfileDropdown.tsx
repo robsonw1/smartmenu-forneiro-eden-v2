@@ -7,11 +7,13 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Progress } from '@/components/ui/progress';
-import { LogOut, Sparkles, TrendingUp, Gift, Clock, MapPin, Package } from 'lucide-react';
+import { LogOut, Sparkles, TrendingUp, Gift, Clock, MapPin, Package, HelpCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { CustomerHistoryDrawer } from '@/components/CustomerHistoryDrawer';
 import { CustomerOrdersDrawer } from '@/components/CustomerOrdersDrawer';
 import { DeliveryAddressDialog } from '@/components/DeliveryAddressDialog';
+import { CustomerOnboardingTutorial } from '@/components/CustomerOnboardingTutorial';
+import { useCustomerOnboarding } from '@/hooks/use-customer-onboarding';
 
 export function CustomerProfileDropdown() {
   const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
@@ -21,6 +23,18 @@ export function CustomerProfileDropdown() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(false);
   const [addressOpen, setAddressOpen] = useState(false);
+
+  // Hook para gerenciar onboarding
+  const {
+    isOpen: isOnboardingOpen,
+    currentStep,
+    steps,
+    nextStep,
+    prevStep,
+    skipOnboarding,
+    openTutorial,
+    isLoading: isOnboardingLoading,
+  } = useCustomerOnboarding();
 
   if (!currentCustomer) {
     return null;
@@ -164,6 +178,7 @@ export function CustomerProfileDropdown() {
             {/* Botões de Ação */}
             <div className="pt-2 border-t space-y-2">
               <Button
+                id="btn-meus-pedidos"
                 onClick={() => setOrdersOpen(true)}
                 variant="outline"
                 size="sm"
@@ -173,6 +188,7 @@ export function CustomerProfileDropdown() {
                 Meus Pedidos
               </Button>
               <Button
+                id="btn-meu-endereco"
                 onClick={() => setAddressOpen(true)}
                 variant="outline"
                 size="sm"
@@ -182,6 +198,7 @@ export function CustomerProfileDropdown() {
                 Meu Endereço
               </Button>
               <Button
+                id="btn-historico"
                 onClick={() => setHistoryOpen(true)}
                 variant="outline"
                 size="sm"
@@ -191,6 +208,7 @@ export function CustomerProfileDropdown() {
                 Histórico
               </Button>
               <Button
+                id="btn-sair-conta"
                 onClick={handleLogout}
                 variant="outline"
                 size="sm"
@@ -199,6 +217,22 @@ export function CustomerProfileDropdown() {
                 <LogOut className="w-4 h-4" />
                 Sair da Conta
               </Button>
+
+              {/* Botão de Ajuda (Tutorial) */}
+              <div className="pt-2 border-t">
+                <Button
+                  onClick={() => {
+                    setIsOpen(false);
+                    openTutorial();
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  className="w-full flex items-center justify-center gap-2 text-muted-foreground hover:text-primary"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                  Como Usar
+                </Button>
+              </div>
             </div>
           </motion.div>
         </PopoverContent>
@@ -220,6 +254,17 @@ export function CustomerProfileDropdown() {
       <DeliveryAddressDialog
         isOpen={addressOpen}
         onClose={() => setAddressOpen(false)}
+      />
+
+      {/* Onboarding Tutorial */}
+      <CustomerOnboardingTutorial
+        isOpen={isOnboardingOpen}
+        currentStep={currentStep}
+        steps={steps}
+        onNext={nextStep}
+        onPrev={prevStep}
+        onSkip={skipOnboarding}
+        isLoading={isOnboardingLoading}
       />
     </>
   );
