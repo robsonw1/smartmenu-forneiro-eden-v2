@@ -6,12 +6,14 @@ import { CheckoutModal } from '@/components/CheckoutModal';
 import { SchedulingCheckoutModal } from '@/components/SchedulingCheckoutModal';
 import { Footer } from '@/components/Footer';
 import { CustomerLoginModal } from '@/components/CustomerLoginModal';
+import { DeliveryAddressDialog } from '@/components/DeliveryAddressDialog';
 import { useLoyaltyStore } from '@/store/useLoyaltyStore';
 import { useLoyaltyRealtimeSync } from '@/hooks/use-loyalty-realtime-sync';
 import { useState, useEffect } from 'react';
 
 const Index = () => {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isDeliveryAddressOpen, setIsDeliveryAddressOpen] = useState(false);
   const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
   const restoreRememberedLogin = useLoyaltyStore((s) => s.restoreRememberedLogin);
 
@@ -49,6 +51,15 @@ const Index = () => {
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
         onSuccess={() => setIsLoginModalOpen(false)}
+        onSignupSuccess={() => {
+          setIsLoginModalOpen(false);
+          // Toast com ação será mostrado pelo componente
+        }}
+        onOpenAddressDialog={() => setIsDeliveryAddressOpen(true)}
+      />
+      <DeliveryAddressDialog
+        isOpen={isDeliveryAddressOpen}
+        onClose={() => setIsDeliveryAddressOpen(false)}
       />
       <ProductModal />
       <CartDrawer />
