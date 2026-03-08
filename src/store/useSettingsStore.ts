@@ -235,71 +235,60 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       console.log('🖨️  [UPDATE-SETTINGS] PrintNode Printer ID:', updateData.printnode_printer_id);
       console.log('🖨️  [UPDATE-SETTINGS] PrintNode Mode:', updateData.print_mode);
       console.log('🔓 [UPDATE-SETTINGS] Is Manually Open:', updateData.is_manually_open);
-      console.log('📤 [UPDATE-SETTINGS] JSON COMPLETO sendo enviado:', JSON.stringify(updateData, null, 2));
-      console.log('📤 [UPDATE-SETTINGS] Enviando COMPLETO ao Supabase...');
+      console.log('📤 [UPDATE-SETTINGS] Enviando via Edge Function (update-store-settings)...');
 
-      // 4️⃣ ENVIAR PARA SUPABASE
-      const { data, error } = await supabase
-        .from('settings')
-        .update(updateData)
-        .eq('id', 'store-settings')
-        .select(); // ✅ RETORNAR DADOS SALVOS PARA CONFIRMAR
+      // 4️⃣ ENVIAR PARA EDGE FUNCTION (com service_role para bypass de RLS)
+      console.log('🚀 [UPDATE-SETTINGS] Chamando Edge Function...');
+      const fnResponse = await supabase.functions.invoke('update-store-settings', {
+        body: {
+          settings: {
+            ...updateData.value,
+            // Adicionar colunas normalizadas também no body
+            printnode_printer_id: updateData.printnode_printer_id,
+            print_mode: updateData.print_mode,
+            auto_print_pix: updateData.auto_print_pix,
+            auto_print_card: updateData.auto_print_card,
+            auto_print_cash: updateData.auto_print_cash,
+            isManuallyOpen: updateData.is_manually_open,
+            enableScheduling: updateData.enable_scheduling,
+            minScheduleMinutes: updateData.min_schedule_minutes,
+            maxScheduleDays: updateData.max_schedule_days,
+            allowSchedulingOnClosedDays: updateData.allow_scheduling_on_closed_days,
+            allowSchedulingOutsideBusinessHours: updateData.allow_scheduling_outside_business_hours,
+            respectBusinessHoursForScheduling: updateData.respect_business_hours_for_scheduling,
+            allowSameDaySchedulingOutsideHours: updateData.allow_same_day_scheduling_outside_hours,
+          },
+        },
+      });
 
-      if (error) {
-        console.error('❌ [UPDATE-SETTINGS] ERRO AO SALVAR:', error);
-        console.error('❌ [UPDATE-SETTINGS] Código de erro:', (error as any).code);
-        console.error('❌ [UPDATE-SETTINGS] Mensagem:', (error as any).message);
-        throw error;
+      if (fnResponse.error) {
+        console.error('❌ [UPDATE-SETTINGS] ERRO NA EDGE FUNCTION:', fnResponse.error);
+        throw fnResponse.error;
+      }
+
+      const fnData = fnResponse.data as any;
+
+      if (!fnData || !fnData.success) {
+        console.error('❌ [UPDATE-SETTINGS] Edge Function retornou erro:', fnData?.error || 'Unknown error');
+        throw new Error(fnData?.error || 'Edge Function failed');
       }
 
       // 5️⃣ VERIFICAR QUE REALMENTE SALVOU
-      if (data && data.length > 0) {
-        const savedData = data[0] as any;
-        const savedValue = savedData.value || {};
-        const savedSchedule = savedValue.schedule;
-        
-        console.log('✅ [UPDATE-SETTINGS] CONFIRMADO! Dados salvos no Supabase:');
-        console.log('✅ [UPDATE-SETTINGS] Schedule salvo (thursday):', savedSchedule?.thursday);
-        console.log('🖨️  [UPDATE-SETTINGS] PrintNode salvo - ID:', savedData.printnode_printer_id, ', Mode:', savedData.print_mode);
-        console.log('🔓 [UPDATE-SETTINGS] Is Manually Open salvo:', savedData.is_manually_open);
-        console.log('✅ [UPDATE-SETTINGS] Updated At:', savedData.updated_at);
-        console.log('📊 [UPDATE-SETTINGS] COMPARAÇÃO SCHEDULE:');
-        console.log('📊 Enviado thursday openTime:', updateData.value.schedule.thursday.openTime);
-        console.log('📊 Salvo thursday openTime:', savedSchedule?.thursday?.openTime);
-        console.log('📊 MATCH?', updateData.value.schedule.thursday.openTime === savedSchedule?.thursday?.openTime ? '✅ SIM' : '❌ NÃO');
-        
-        // 🖨️  VERIFICAÇÃO PRINTNODE
-        if (updateData.printnode_printer_id) {
-          console.log('📊 [UPDATE-SETTINGS] COMPARAÇÃO PRINTNODE:');
-          console.log('📊 Enviado Printer ID:', updateData.printnode_printer_id);
-          console.log('📊 Salvo Printer ID:', savedData.printnode_printer_id);
-          console.log('📊 MATCH?', updateData.printnode_printer_id === savedData.printnode_printer_id ? '✅ SIM' : '❌ NÃO');
-        }
-        
-        // 🔓 VERIFICAÇÃO IS_MANUALLY_OPEN
-        console.log('📊 [UPDATE-SETTINGS] COMPARAÇÃO IS_MANUALLY_OPEN:');
-        console.log('📊 Enviado is_manually_open:', updateData.is_manually_open);
-        console.log('📊 Salvo is_manually_open:', savedData.is_manually_open);
-        console.log('📊 MATCH?', updateData.is_manually_open === savedData.is_manually_open ? '✅ SIM' : '❌ NÃO');
-        
-        // ⚠️  SE NÃO MATCHOU, FAZER UM SELECT ADICIONAL PARA CONFIRMAR
-        if (updateData.value.schedule.thursday.openTime !== savedSchedule?.thursday?.openTime) {
-          console.warn('⚠️  [UPDATE-SETTINGS] DADOS RETORNADOS NÃO MATCHAM! Fazendo SELECT adicional...');
-          const { data: verifyData, error: verifyError } = await supabase
-            .from('settings')
-            .select('value')
-            .eq('id', 'store-settings')
-            .single();
-          
-          if (!verifyError && verifyData) {
-            const verifyValue = (verifyData as any).value || {};
-            console.log('🔍 [UPDATE-SETTINGS] SELECT de verificação:');
-            console.log('🔍 Valor no banco (thursday openTime):', verifyValue.schedule?.thursday?.openTime);
-            console.log('🔍 CONTINUA NÃO MATCHANDO?', updateData.value.schedule.thursday.openTime !== verifyValue.schedule?.thursday?.openTime ? '❌ SIM - PROBLEMA NO BANCO!' : '✅ NÃO - PODE SER RESPOSTA ATRASADA');
-          }
-        }
-      } else {
-        console.warn('⚠️  [UPDATE-SETTINGS] Supabase retornou vazio - verificar se update funcionou');
+      const savedData = fnData.data as any;
+      const savedValue = savedData.value || {};
+      const savedSchedule = savedValue.schedule;
+      
+      console.log('✅ [UPDATE-SETTINGS] CONFIRMADO! Dados salvos via Edge Function:');
+      console.log('✅ [UPDATE-SETTINGS] Schedule salvo (thursday):', savedSchedule?.thursday);
+      console.log('🖨️  [UPDATE-SETTINGS] PrintNode salvo - ID:', savedData.printnode_printer_id, ', Mode:', savedData.print_mode);
+      console.log('🔓 [UPDATE-SETTINGS] Is Manually Open salvo:', savedData.is_manually_open);
+      console.log('✅ [UPDATE-SETTINGS] Updated At:', savedData.updated_at);
+      console.log('📊 [UPDATE-SETTINGS] VERIFICAÇÃO EDGE FUNCTION:');
+      console.log('📊 scheduleMatch:', fnData.verification?.scheduleMatch);
+      console.log('📊 isManuallyOpenMatch:', fnData.verification?.isManuallyOpenMatch);
+      
+      if (!fnData.verification?.scheduleMatch) {
+        console.warn('⚠️  [UPDATE-SETTINGS] ALERTA: Schedule salva não corresponde ao enviado!');
       }
 
       console.log('💾 [UPDATE-SETTINGS] ════════════════════════════════════════');
