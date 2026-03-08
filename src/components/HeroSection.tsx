@@ -2,7 +2,10 @@ import { Clock, MapPin, Phone } from 'lucide-react';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 export function HeroSection() {
-  const settings = useSettingsStore((s) => s.settings);
+  const slogan = useSettingsStore((s) => s.settings.slogan);
+  const phone = useSettingsStore((s) => s.settings.phone);
+  const deliveryTimeMin = useSettingsStore((s) => s.settings.deliveryTimeMin);
+  const deliveryTimeMax = useSettingsStore((s) => s.settings.deliveryTimeMax);
 
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-secondary/50 to-background py-12 md:py-20">
@@ -17,7 +20,7 @@ export function HeroSection() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-6">
             <span className="text-xl">🇮🇹</span>
-            <span className="text-sm font-medium">{settings.slogan}</span>
+            <span className="text-sm font-medium">{slogan}</span>
           </div>
 
           {/* Main Title */}
@@ -28,7 +31,7 @@ export function HeroSection() {
 
           {/* Subtitle */}
           <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            {settings.slogan} Ingredientes frescos, massa artesanal 
+            {slogan} Ingredientes frescos, massa artesanal 
             e o carinho de uma receita passada por gerações.
           </p>
 
@@ -56,7 +59,7 @@ export function HeroSection() {
               </div>
               <div className="text-left">
                 <p className="text-xs text-muted-foreground">Entrega em</p>
-                <p className="font-semibold text-foreground">{settings.deliveryTimeMin}-{settings.deliveryTimeMax} min</p>
+                <p className="font-semibold text-foreground">{deliveryTimeMin}-{deliveryTimeMax} min</p>
               </div>
             </div>
 
@@ -76,7 +79,7 @@ export function HeroSection() {
               </div>
               <div className="text-left">
                 <p className="text-xs text-muted-foreground">WhatsApp</p>
-                <p className="font-semibold text-foreground">{settings.phone}</p>
+                <p className="font-semibold text-foreground">{phone}</p>
               </div>
             </div>
           </div>
