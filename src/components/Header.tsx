@@ -18,7 +18,10 @@ interface HeaderProps {
 export function Header({ onLoginClick }: HeaderProps) {
   const { getItemCount } = useCartStore();
   const { setCartOpen } = useUIStore();
-  const settings = useSettingsStore((s) => s.settings);
+  const deliveryTimeMin = useSettingsStore((s) => s.settings.deliveryTimeMin);
+  const deliveryTimeMax = useSettingsStore((s) => s.settings.deliveryTimeMax);
+  const pickupTimeMin = useSettingsStore((s) => s.settings.pickupTimeMin);
+  const pickupTimeMax = useSettingsStore((s) => s.settings.pickupTimeMax);
   const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
@@ -54,7 +57,7 @@ export function Header({ onLoginClick }: HeaderProps) {
               >
                 <Truck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 <span className="text-xs font-semibold">
-                  {settings.deliveryTimeMin}–{settings.deliveryTimeMax}min
+                  {deliveryTimeMin}–{deliveryTimeMax}min
                 </span>
               </Badge>
               
@@ -64,7 +67,7 @@ export function Header({ onLoginClick }: HeaderProps) {
               >
                 <Store className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                 <span className="text-xs font-semibold">
-                  {settings.pickupTimeMin}–{settings.pickupTimeMax}min
+                  {pickupTimeMin}–{pickupTimeMax}min
                 </span>
               </Badge>
             </div>
@@ -164,7 +167,7 @@ export function Header({ onLoginClick }: HeaderProps) {
                   >
                     <Truck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span className="text-xs font-semibold">
-                      Entrega {settings.deliveryTimeMin}–{settings.deliveryTimeMax}min
+                      Entrega {deliveryTimeMin}–{deliveryTimeMax}min
                     </span>
                   </Badge>
                   
@@ -174,7 +177,7 @@ export function Header({ onLoginClick }: HeaderProps) {
                   >
                     <Store className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                     <span className="text-xs font-semibold">
-                      Retirada {settings.pickupTimeMin}–{settings.pickupTimeMax}min
+                      Retirada {pickupTimeMin}–{pickupTimeMax}min
                     </span>
                   </Badge>
                 </div>
