@@ -113,6 +113,9 @@ export function SchedulingCheckoutModal() {
   const activeNeighborhoods = neighborhoods.filter(n => n.isActive);
   const addOrder = useOrdersStore((s) => s.addOrder);
   const settings = useSettingsStore((s) => s.settings);
+  // ✅ MELHORADO: Inscrever-se especificamente a mudanças em enableScheduling
+  // Isso garante sincronização em tempo real quando admin ativa/desativa agendamento
+  const enableScheduling = useSettingsStore((s) => s.settings.enableScheduling ?? false);
   const isStoreOpen = useSettingsStore((s) => s.isStoreOpen);
 
   const [step, setStep] = useState<Step>('contact');
@@ -1084,7 +1087,7 @@ export function SchedulingCheckoutModal() {
     
     // 🔒 VALIDAÇÃO CRÍTICA: Revalidar data de agendamento antes de submeter
     // Isso previne que alguém tente manipular a data via DevTools
-    if (settings.enableScheduling && scheduledDate) {
+    if (enableScheduling && scheduledDate) {
       const maxDaysAllowed = settings.maxScheduleDays ?? 7;
       const today = new Date();
       today.setHours(0, 0, 0, 0);
