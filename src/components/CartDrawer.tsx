@@ -15,8 +15,11 @@ import pizzaImage from '@/assets/pizza-hero.jpg';
 export function CartDrawer() {
   const { isCartOpen, setCartOpen, setCheckoutOpen, setSchedulingCheckoutOpen } = useUIStore();
   const { items, removeItem, updateQuantity, getSubtotal, clearCart } = useCartStore();
-  const { settings } = useSettingsStore();
-  const enableScheduling = settings.enableScheduling ?? false;
+  // ✅ MELHORADO: Inscrever-se especificamente a mudanças em enableScheduling
+  // Isso garante que CartDrawer re-renderize IMEDIATAMENTE quando admin ativa/desativa
+  const enableScheduling = useSettingsStore(
+    (state) => state.settings.enableScheduling ?? false
+  );
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
