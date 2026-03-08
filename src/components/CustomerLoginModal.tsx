@@ -20,12 +20,16 @@ interface CustomerLoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  onSignupSuccess?: () => void;
+  onOpenAddressDialog?: () => void;
 }
 
 export function CustomerLoginModal({
   isOpen,
   onClose,
   onSuccess,
+  onSignupSuccess,
+  onOpenAddressDialog,
 }: CustomerLoginModalProps) {
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
   
@@ -147,13 +151,24 @@ export function CustomerLoginModal({
       );
 
       if (success) {
-        toast.success('✅ Conta criada com sucesso! Você agora está logado');
         setSignupEmail('');
         setSignupName('');
         setSignupCpf('');
         setSignupPhone('');
         onClose();
-        onSuccess?.();
+        onSignupSuccess?.();
+        
+        // ✨ Toast com ação: Sim (abrir dialog de endereço) ou Depois (apenas fechar)
+        toast.success('✅ Conta criada com sucesso!', {
+          description: 'Deseja preencher seu endereço de entrega padrão agora?',
+          action: {
+            label: 'Preencher Agora',
+            onClick: () => {
+              onOpenAddressDialog?.();
+            },
+          },
+          duration: 8000, // 8 segundos para o usuário decidir
+        });
       } else {
         toast.error('Erro ao criar conta. Verifique seus dados e tente novamente.');
       }
