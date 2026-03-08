@@ -61,6 +61,7 @@ interface LoyaltyStore {
   // Actions
   findOrCreateCustomer: (email: string) => Promise<Customer | null>;
   registerCustomer: (email: string, cpf: string, name: string, phone?: string) => Promise<boolean>;
+  registerCustomerWithoutBonus: (email: string, cpf: string, name: string, phone?: string) => Promise<boolean>;
   addPointsFromPurchase: (customerId: string, amount: number, orderId: string, pointsRedeemed?: number) => Promise<void>;
   addSignupBonus: (customerId: string) => Promise<void>;
   redeemPoints: (customerId: string, pointsToSpend: number) => Promise<{ success: boolean; discountAmount: number }>;
@@ -212,6 +213,51 @@ export const useLoyaltyStore = create<LoyaltyStore>((set, get) => ({
       return true;
     } catch (error) {
       console.error('Erro em registerCustomer:', error);
+      return false;
+    }
+  },
+
+  registerCustomerWithoutBonus: async (email: string, cpf: string, name: string, phone?: string) => {
+    try {
+      // 🔒 Normalizar email (URGENTE #6)
+      const normalizedEmail = normalizeEmail(email);
+      
+      console.log('registerCustomerWithoutBonus chamado com:', { normalizedEmail, cpf, name, phone });
+
+      // Usar UPSERT para garantir que os dados sejam salvos mesmo se o email for diferente
+      const { data, error } = await (supabase as any)
+        .from('customers')
+        .upsert(
+          {
+            email: normalizedEmail,
+            cpf,
+            name,
+            phone: phone || null,
+            is_registered: true,
+            registered_at: getLocalISOString(),
+          },
+          { onConflict: 'email' }
+        )
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erro ao registrar cliente sem bônus (upsert):', error);
+        return false;
+      }
+
+      console.log('Cliente registrado com sucesso (sem bônus):', data);
+
+      // ✅ NÃO adiciona bônus de signup - apenas registro simples
+      // Recarregar dados do cliente
+      const customer = await get().getCustomerByEmail(normalizedEmail);
+      if (customer) {
+        set({ currentCustomer: customer, points: customer.totalPoints });
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Erro em registerCustomerWithoutBonus:', error);
       return false;
     }
   },
