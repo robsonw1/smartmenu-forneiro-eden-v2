@@ -95,7 +95,17 @@ export function CheckoutModal() {
   const neighborhoods = useNeighborhoodsStore((s) => s.neighborhoods);
   const activeNeighborhoods = neighborhoods.filter(n => n.isActive);
   const addOrder = useOrdersStore((s) => s.addOrder);
-  const settings = useSettingsStore((s) => s.settings);
+  const isManuallyOpen = useSettingsStore((s) => s.settings.isManuallyOpen);
+  const deliveryTimeMin = useSettingsStore((s) => s.settings.deliveryTimeMin);
+  const deliveryTimeMax = useSettingsStore((s) => s.settings.deliveryTimeMax);
+  const pickupTimeMin = useSettingsStore((s) => s.settings.pickupTimeMin);
+  const pickupTimeMax = useSettingsStore((s) => s.settings.pickupTimeMax);
+  const shouldSendOrderSummaryToWhatsApp = useSettingsStore((s) => s.settings.sendOrderSummaryToWhatsApp);
+  const phone = useSettingsStore((s) => s.settings.phone);
+  const print_mode = useSettingsStore((s) => s.settings.print_mode);
+  const auto_print_pix = useSettingsStore((s) => s.settings.auto_print_pix);
+  const auto_print_card = useSettingsStore((s) => s.settings.auto_print_card);
+  const auto_print_cash = useSettingsStore((s) => s.settings.auto_print_cash);
   const isStoreOpen = useSettingsStore((s) => s.isStoreOpen);
 
   const [step, setStep] = useState<Step>('contact');
@@ -153,7 +163,7 @@ export function CheckoutModal() {
       console.log('🔄 [CHECKOUT] storeOpen recalculado:', newStoreStatus, 'Horário:', {
         hora: new Date().toLocaleTimeString('pt-BR'),
         dia: new Date().toLocaleDateString('pt-BR', { weekday: 'long' }),
-        isManuallyOpen: settings.isManuallyOpen,
+        isManuallyOpen: isManuallyOpen,
       });
     };
 
@@ -310,7 +320,7 @@ export function CheckoutModal() {
           const settingsStore = useSettingsStore.getState();
           settingsStore.updateSettings({
             sendOrderSummaryToWhatsApp: valueData.sendOrderSummaryToWhatsApp !== undefined ? valueData.sendOrderSummaryToWhatsApp : false,
-            phone: valueData.phone || settings.phone,
+            phone: valueData.phone || phone,
           });
         }
       } catch (error) {
@@ -323,8 +333,8 @@ export function CheckoutModal() {
     const handleStorageUpdate = () => {
       console.log('📢 [CHECKOUT] localStorage.settings-updated detectado');
       console.log('📢 [CHECKOUT] Settings atuais:', {
-        sendOrderSummaryToWhatsApp: settings.sendOrderSummaryToWhatsApp,
-        phone: settings.phone,
+        sendOrderSummaryToWhatsApp: sendOrderSummaryToWhatsApp,
+        phone: phone,
       });
     };
 
@@ -688,8 +698,8 @@ export function CheckoutModal() {
         type: deliveryType === 'delivery' ? 'ENTREGA' : 'RETIRADA',
         fee: deliveryFee,
         estimatedTime: deliveryType === 'delivery' 
-          ? `${settings.deliveryTimeMin}-${settings.deliveryTimeMax} min`
-          : `${settings.pickupTimeMin}-${settings.pickupTimeMax} min`,
+          ? `${deliveryTimeMin}-${deliveryTimeMax} min`
+          : `${pickupTimeMin}-${pickupTimeMax} min`,
         ...(deliveryType === 'delivery' && {
           address: {
             street: address.street,
@@ -742,12 +752,12 @@ export function CheckoutModal() {
     let shouldAutoPrint = false;
     
     // SÓ usar auto-print se o modo for "auto" (não "manual")
-    if (settings.print_mode === 'auto') {
-      if (paymentMethod === 'pix' && settings.auto_print_pix) {
+    if (print_mode === 'auto') {
+      if (paymentMethod === 'pix' && auto_print_pix) {
         shouldAutoPrint = true;
-      } else if (paymentMethod === 'card' && settings.auto_print_card) {
+      } else if (paymentMethod === 'card' && auto_print_card) {
         shouldAutoPrint = true;
-      } else if (paymentMethod === 'cash' && settings.auto_print_cash) {
+      } else if (paymentMethod === 'cash' && auto_print_cash) {
         shouldAutoPrint = true;
       }
     }
@@ -813,7 +823,7 @@ export function CheckoutModal() {
     console.log('✅ [CHECKOUT] Pedido criado com ID:', createdOrder.id, 'Tenant:', tenantId || 'será auto-detectado');
 
     // � Enviar resumo para WhatsApp do gerente (se habilitado nas configurações)
-    if (settings.sendOrderSummaryToWhatsApp && settings.phone) {
+    if (sendOrderSummaryToWhatsApp && phone) {
       try {
         // Formatar número do pedido
         const orderNo = createdOrder.id || `PED-${Date.now()}`;
@@ -821,13 +831,13 @@ export function CheckoutModal() {
         // CRÍTICO: Usar settings fresco do store
         const storeSettings = useSettingsStore.getState().settings;
         console.log('🔍 [CHECKOUT] Verificando resumo WhatsApp (store atual):', {
-          sendOrderSummaryToWhatsApp: storeSettings.sendOrderSummaryToWhatsApp,
-          phone: storeSettings.phone,
-          shouldSend: storeSettings.sendOrderSummaryToWhatsApp && storeSettings.phone,
+          sendOrderSummaryToWhatsApp: shouldSendOrderSummaryToWhatsApp,
+          phone: phone,
+          shouldSend: shouldSendOrderSummaryToWhatsApp && phone,
         });
         
         // Se a flag foi desativada no meio do processo, não enviar
-        if (!storeSettings.sendOrderSummaryToWhatsApp) {
+        if (!shouldSendOrderSummaryToWhatsApp) {
           console.log('⏸️ [CHECKOUT] Resumo WhatsApp cancelado - flag desativada');
           return;
         }
@@ -980,9 +990,9 @@ export function CheckoutModal() {
       }
     } else {
       console.log('⏸️ [CHECKOUT] Resumo WhatsApp não enviado - Motivo:', {
-        sendOrderSummaryToWhatsApp: settings.sendOrderSummaryToWhatsApp,
-        phone: settings.phone,
-        areConditionsMet: settings.sendOrderSummaryToWhatsApp && settings.phone,
+        sendOrderSummaryToWhatsApp: shouldSendOrderSummaryToWhatsApp,
+        phone: phone,
+        areConditionsMet: shouldSendOrderSummaryToWhatsApp && phone,
       });
     }
 
@@ -1001,9 +1011,9 @@ export function CheckoutModal() {
 
   const handleSubmitOrder = async () => {
     // � PROTEÇÃO CRÍTICA #1: Se loja está fechada, BLOQUEIA IMEDIATAMENTE - sem processamento
-    if (!storeOpen || !settings.isManuallyOpen) {
+    if (!storeOpen || !isManuallyOpen) {
       toast.error(
-        !settings.isManuallyOpen 
+        !isManuallyOpen 
           ? '🔒 Estabelecimento fechado manualmente. Não é possível fazer pedidos agora.'
           : '⏰ Estabelecimento fora do horário de funcionamento. Volte mais tarde.'
       );
@@ -1424,10 +1434,10 @@ export function CheckoutModal() {
                 <div className="bg-red-600 text-white p-8 rounded-xl text-center max-w-md shadow-2xl">
                   <div className="text-5xl mb-4">🔒</div>
                   <h3 className="text-2xl font-bold mb-2">
-                    {!settings.isManuallyOpen ? 'ESTABELECIMENTO FECHADO' : 'HORÁRIO NÃO PERMITIDO'}
+                    {!isManuallyOpen ? 'ESTABELECIMENTO FECHADO' : 'HORÁRIO NÃO PERMITIDO'}
                   </h3>
                   <p className="text-base font-semibold">
-                    {!settings.isManuallyOpen 
+                    {!isManuallyOpen 
                       ? 'Não é possível fazer pedidos no momento' 
                       : 'Loja está fora do horário de funcionamento'}
                   </p>
@@ -1440,7 +1450,7 @@ export function CheckoutModal() {
               <Alert variant="destructive" className="mt-4 border-2 border-red-600">
                 <AlertCircle className="h-5 w-5" />
                 <AlertDescription className="font-bold text-base">
-                  <strong>{!settings.isManuallyOpen ? '🔒 ESTABELECIMENTO FECHADO MANUALMENTE' : '⏰ FORA DO HORÁRIO DE FUNCIONAMENTO'}</strong> 
+                  <strong>{!isManuallyOpen ? '🔒 ESTABELECIMENTO FECHADO MANUALMENTE' : '⏰ FORA DO HORÁRIO DE FUNCIONAMENTO'}</strong> 
                   <br />
                   Não é possível fazer pedidos no momento. Por favor, consulte nosso horário de funcionamento.
                 </AlertDescription>
@@ -1461,12 +1471,12 @@ export function CheckoutModal() {
             )}
 
             {/* Store Closed Alert - ALL STEPS */}
-            {(!storeOpen || !settings.isManuallyOpen) && (
+            {(!storeOpen || !isManuallyOpen) && (
               <Alert variant="destructive" className="mt-4 border-2 border-red-600">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>{!settings.isManuallyOpen ? '🔒 Estabelecimento Fechado Manualmente.' : '⏰ Fora do Horário de Funcionamento.'}</strong><br/>
-                  {!settings.isManuallyOpen 
+                  <strong>{!isManuallyOpen ? '🔒 Estabelecimento Fechado Manualmente.' : '⏰ Fora do Horário de Funcionamento.'}</strong><br/>
+                  {!isManuallyOpen 
                     ? 'Não é possível fazer pedidos no momento. Volte em breve!' 
                     : 'Nossa loja não está aberta agora. Consulte nosso horário de funcionamento.'}
                 </AlertDescription>
@@ -1592,7 +1602,7 @@ export function CheckoutModal() {
                               Taxa: {selectedNeighborhood ? formatPrice(selectedNeighborhood.deliveryFee) : 'Selecione o bairro'}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {settings.deliveryTimeMin}-{settings.deliveryTimeMax} min
+                              {deliveryTimeMin}-{deliveryTimeMax} min
                             </p>
                           </div>
                         </Label>
@@ -1613,7 +1623,7 @@ export function CheckoutModal() {
                             <p className="font-semibold">Retirada na loja</p>
                             <p className="text-sm text-muted-foreground">Sem taxa</p>
                             <p className="text-xs text-muted-foreground">
-                              {settings.pickupTimeMin}-{settings.pickupTimeMax} min
+                              {pickupTimeMin}-{pickupTimeMax} min
                             </p>
                           </div>
                         </Label>
@@ -2230,8 +2240,8 @@ export function CheckoutModal() {
                   <Button 
                     className="btn-cta gap-2"
                     onClick={handleSubmitOrder}
-                    disabled={isProcessing || !storeOpen || !settings.isManuallyOpen}
-                    title={(!storeOpen || !settings.isManuallyOpen) ? (!settings.isManuallyOpen ? '🔒 Estabelecimento fechado' : '⏰ Fora do horário de funcionamento') : ''}
+                    disabled={isProcessing || !storeOpen || !isManuallyOpen}
+                    title={(!storeOpen || !isManuallyOpen) ? (!isManuallyOpen ? '🔒 Estabelecimento fechado' : '⏰ Fora do horário de funcionamento') : ''}
                   >
                     {isProcessing ? (
                       <>
@@ -2254,8 +2264,8 @@ export function CheckoutModal() {
                   <Button 
                     className="btn-cta gap-2" 
                     onClick={nextStep}
-                    disabled={!storeOpen || !settings.isManuallyOpen}
-                    title={(!storeOpen || !settings.isManuallyOpen) ? (!settings.isManuallyOpen ? '🔒 Estabelecimento fechado' : '⏰ Fora do horário de funcionamento') : ''}
+                    disabled={!storeOpen || !isManuallyOpen}
+                    title={(!storeOpen || !isManuallyOpen) ? (!isManuallyOpen ? '🔒 Estabelecimento fechado' : '⏰ Fora do horário de funcionamento') : ''}
                   >
                     Continuar
                     <ArrowRight className="w-4 h-4" />
