@@ -435,39 +435,12 @@ const AdminDashboard = () => {
         return;
       }
 
-      console.log('✅ UPDATE concluído. Disparará webhook Realtime em breve...');
-
-      // Atualizar o store localmente também (o realtime vai sincronizar para todos)
-      toggleActive(productId);
+      console.log('✅ UPDATE concluído. Webhook Realtime sincronizará para todos os clientes...');
+      console.log('⏳ Aguardando webhook Realtime para atualizar store do admin...');
       
-      // Fazer SELECT fresh do produto para garantir sincronização imediata no admin
-      const { data: freshProduct, error: selectError } = await (supabase as any)
-        .from('products')
-        .select('*')
-        .eq('id', productId)
-        .single();
-
-      if (!selectError && freshProduct) {
-        console.log('📥 SELECT fresh recebido:', { id: freshProduct.id, name: freshProduct.name, data: freshProduct.data });
-        // Upsert com dados frescos para sincronizar o state imediatamente
-        const freshData = freshProduct.data;
-        useCatalogStore.getState().upsertProduct({
-          id: freshProduct.id,
-          name: freshProduct.name || '',
-          description: freshData?.description || '',
-          price: freshData?.price,
-          priceSmall: freshData?.price_small,
-          priceLarge: freshData?.price_large,
-          category: freshData?.category || 'outros',
-          ingredients: freshData?.ingredients || [],
-          image: freshData?.image,
-          isActive: freshData?.is_active ?? true,
-          isPopular: freshData?.is_popular ?? false,
-          isVegetarian: freshData?.is_vegetarian ?? false,
-          isCustomizable: freshData?.is_customizable ?? false,
-          isNew: freshData?.is_new ?? false,
-        });
-      }
+      // ⚠️  NÃO chamar toggleActive() aqui - deixar webhook realtime fazer isso
+      // Isso evita race condition de múltiplos updates
+      // O webhook chegará em ~100-500ms e atualizará automaticamente via use-realtime-sync
       
       console.log(`✅ Produto ${productId} atualizado: isActive = ${newActiveState}`);
     } catch (error) {
