@@ -51,6 +51,18 @@ const parseProductFromSupabase = (supabaseData: any): Product => {
 };
 
 /**
+ * Converte dados do Supabase (snake_case) para o formato Neighborhood esperado (camelCase)
+ */
+const parseNeighborhoodFromSupabase = (supabaseData: any): Neighborhood => {
+  return {
+    id: supabaseData.id,
+    name: supabaseData.name,
+    deliveryFee: supabaseData.delivery_fee ?? 0,
+    isActive: supabaseData.is_active === true,
+  };
+};
+
+/**
  * Hook que sincroniza os dados da aplicação com o Supabase em tempo real
  * Carrega os dados iniciais e escuta mudanças em produtos, pedidos, bairros e configurações
  * 
@@ -113,7 +125,8 @@ export const useRealtimeSync = () => {
               continue;
             }
             
-            neighborhoodsStore.upsertNeighborhood(neighborhood as Neighborhood);
+            const parsed = parseNeighborhoodFromSupabase(neighborhood);
+            neighborhoodsStore.upsertNeighborhood(parsed);
           }
         }
       } catch (error) {
@@ -154,8 +167,11 @@ export const useRealtimeSync = () => {
         
         if (neighborhoods && isMounted) {
           const neighborhoodsStore = useNeighborhoodsStore.getState();
+          console.log(`✅ Carregados ${neighborhoods.length} bairros inicialmente`);
           for (const neighborhood of neighborhoods) {
-            neighborhoodsStore.upsertNeighborhood(neighborhood as Neighborhood);
+            const parsed = parseNeighborhoodFromSupabase(neighborhood);
+            console.log('🔄 Neighborhood parseado:', parsed);
+            neighborhoodsStore.upsertNeighborhood(parsed);
           }
         }
       } catch (error) {
@@ -259,12 +275,13 @@ export const useRealtimeSync = () => {
           const neighborhoodsStore = useNeighborhoodsStore.getState();
           
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            console.log('✅ Atualizando bairro via webhook:', payload.new.id, 'status:', payload.new.is_active);
+            const parsed = parseNeighborhoodFromSupabase(payload.new);
+            console.log('✅ Atualizando bairro via webhook:', parsed.id, 'status:', parsed.isActive, 'taxa:', parsed.deliveryFee);
             
             // Registrar que este bairro foi sincronizado via webhook
             lastLocalNeighborhoodUpdate.set(payload.new.id, Date.now() + 10000); // +10s para evitar polling logo depois
             
-            neighborhoodsStore.upsertNeighborhood(payload.new as Neighborhood);
+            neighborhoodsStore.upsertNeighborhood(parsed);
           } else if (payload.eventType === 'DELETE') {
             console.log('🗑️ Removendo bairro via webhook:', payload.old.id);
             neighborhoodsStore.removeNeighborhood((payload.old as Neighborhood).id);
