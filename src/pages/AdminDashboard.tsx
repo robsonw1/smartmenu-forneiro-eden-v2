@@ -278,8 +278,11 @@ const AdminDashboard = () => {
       .channel('public:settings')
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'settings', filter: 'id=eq.store-settings' },
+        { event: 'UPDATE', schema: 'public', table: 'settings' },
         async (payload) => {
+          // ✅ FILTRO MANUAL: Apenas se for store-settings
+          if (payload.new.id !== 'store-settings') return;
+          
           console.log('🔔 [ADMIN-SUBSCRIBE] Mudan ça em settings detectada! Outro gerente salvou dados.');
           console.log('🔔 [ADMIN-SUBSCRIBE] Payload:', payload);
           
