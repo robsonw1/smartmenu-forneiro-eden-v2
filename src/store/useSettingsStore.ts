@@ -239,6 +239,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
       // 4️⃣ ENVIAR PARA EDGE FUNCTION (com service_role para bypass de RLS)
       console.log('🚀 [UPDATE-SETTINGS] Chamando Edge Function...');
+      
+      // ✅ Obter sessão atual para passar headers de autenticação
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('🔐 [UPDATE-SETTINGS] Sessão do usuário:', session ? '✅ Ativa' : '❌ Inativa');
+      
       const fnResponse = await supabase.functions.invoke('update-store-settings', {
         body: {
           settings: {
@@ -258,6 +263,10 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
             respectBusinessHoursForScheduling: updateData.respect_business_hours_for_scheduling,
             allowSameDaySchedulingOutsideHours: updateData.allow_same_day_scheduling_outside_hours,
           },
+        },
+        headers: {
+          'Authorization': session ? `Bearer ${session.access_token}` : '',
+          'Content-Type': 'application/json',
         },
       });
 
