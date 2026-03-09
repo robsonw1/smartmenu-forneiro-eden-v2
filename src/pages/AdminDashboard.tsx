@@ -481,13 +481,38 @@ const AdminDashboard = () => {
 
   // Atualizar Bairro e sincronizar com Supabase
   const handleUpdateNeighborhood = async (neighborhoodId: string, updates: any) => {
+    console.log('📝 Atualizando bairro:', neighborhoodId, updates);
     updateNeighborhood(neighborhoodId, updates);
 
     try {
-      await (supabase as any)
+      // Sempre usar snake_case para o banco
+      const supabaseUpdates = {
+        name: updates.name,
+        delivery_fee: updates.deliveryFee,
+        is_active: updates.isActive,
+      };
+      
+      // Remover campos undefined
+      Object.keys(supabaseUpdates).forEach(key => {
+        if (supabaseUpdates[key as keyof typeof supabaseUpdates] === undefined) {
+          delete supabaseUpdates[key as keyof typeof supabaseUpdates];
+        }
+      });
+      
+      console.log('📤 Enviando UPDATE para Supabase:', supabaseUpdates);
+      
+      const { error } = await (supabase as any)
         .from('neighborhoods')
-        .update(updates)
+        .update(supabaseUpdates)
         .eq('id', neighborhoodId);
+
+      if (error) {
+        console.error('❌ Erro ao fazer UPDATE:', error);
+        toast.error('Erro ao sincronizar bairro');
+        return;
+      }
+
+      console.log('✅ UPDATE concluído com sucesso');
     } catch (error) {
       console.error('Erro ao sincronizar bairro:', error);
       toast.error('Erro ao sincronizar bairro');
@@ -499,17 +524,55 @@ const AdminDashboard = () => {
     const neighborhood = neighborhoods.find(n => n.id === neighborhoodId);
     if (!neighborhood) return;
 
+    const newActiveState = !neighborhood.isActive;
+    
+    // Feedback imediato ao admin
     toggleNeighborhoodActive(neighborhoodId);
 
     try {
-      const newActiveState = !neighborhood.isActive;
-      await (supabase as any)
+      console.log('📤 Enviando UPDATE de status do bairro:', {
+        id: neighborhoodId,
+        nome: neighborhood.name,
+        novoStatus: newActiveState,
+      });
+
+      const { error } = await (supabase as any)
         .from('neighborhoods')
-        .update({ isActive: newActiveState })
+        .update({ is_active: newActiveState })
         .eq('id', neighborhoodId);
+
+      if (error) {
+        console.error('❌ Erro ao fazer UPDATE:', error);
+        toast.error('Erro ao sincronizar bairro');
+        // Reverter estado local em caso de erro
+        toggleNeighborhoodActive(neighborhoodId);
+        return;
+      }
+
+      console.log('✅ UPDATE concluído com sucesso');
+      
+      // Aguardar um pouco e fazer SELECT para confirmar
+      setTimeout(async () => {
+        try {
+          const { data: updatedNeighborhood } = await (supabase as any)
+            .from('neighborhoods')
+            .select('*')
+            .eq('id', neighborhoodId)
+            .single();
+          
+          if (updatedNeighborhood) {
+            console.log('✅ Confirmado no banco - status atual:', updatedNeighborhood.is_active);
+            updateNeighborhood(neighborhoodId, { isActive: updatedNeighborhood.is_active });
+          }
+        } catch (err) {
+          console.error('❌ Erro ao confirmar status:', err);
+        }
+      }, 300);
     } catch (error) {
-      console.error('Erro ao sincronizar ativação do bairro:', error);
+      console.error('❌ Erro ao sincronizar ativação do bairro:', error);
       toast.error('Erro ao sincronizar bairro');
+      // Reverter estado local em caso de erro
+      toggleNeighborhoodActive(neighborhoodId);
     }
   };
 
