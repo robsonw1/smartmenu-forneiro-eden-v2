@@ -24,7 +24,7 @@ interface SchedulingSettingsProps {
 
 export function SchedulingSettings({ onScheduleChange, onManualOpenToggle }: SchedulingSettingsProps = {}) {
   console.log('🚀 [SchedulingSettings] COMPONENTE RENDERIZANDO');
-  const { settings, updateSettings } = useSettingsStore();
+  const { settings, updateSettings, loadSettingsFromSupabase } = useSettingsStore();
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [showSlotsDialog, setShowSlotsDialog] = useState(false);
@@ -109,6 +109,9 @@ export function SchedulingSettings({ onScheduleChange, onManualOpenToggle }: Sch
         maxScheduleDays: form.maxScheduleDays,
         allowSchedulingOutsideBusinessHours: form.allowSchedulingOutsideBusinessHours,
       });
+
+      // ✅ Recarregar FRESH do banco para garantir que reflete IMEDIATAMENTE no admin
+      await loadSettingsFromSupabase();
 
       console.log('💾 [SchedulingSettings] Salvo com sucesso:', {
         allowSchedulingOutsideBusinessHours: form.allowSchedulingOutsideBusinessHours,
