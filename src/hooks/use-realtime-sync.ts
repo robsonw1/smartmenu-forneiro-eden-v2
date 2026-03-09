@@ -65,6 +65,9 @@ export const useRealtimeSync = () => {
     let isMounted = true;
     let productsPollInterval: NodeJS.Timeout | null = null;
     let neighborhoodsPollInterval: NodeJS.Timeout | null = null;
+    
+    // Rastrear tempo da última mudança local para cada bairro
+    const lastLocalNeighborhoodUpdate = new Map<string, number>();
 
     // Função para sincronizar produtos via SELECT fresh (usado por webhook e polling)
     const syncProductsFromSupabase = async () => {
@@ -97,7 +100,19 @@ export const useRealtimeSync = () => {
         
         if (neighborhoods && isMounted) {
           const neighborhoodsStore = useNeighborhoodsStore.getState();
+          const currentTime = Date.now();
+          
           for (const neighborhood of neighborhoods) {
+            // Verificar se houve mudança local recente (últimos 3 segundos)
+            const lastUpdate = lastLocalNeighborhoodUpdate.get(neighborhood.id) || 0;
+            const timeSinceLastUpdate = currentTime - lastUpdate;
+            
+            if (timeSinceLastUpdate < 3000) {
+              // Ignorar se foi modificado há menos de 3 segundos (ainda esperando webhook)
+              console.log(`⏭️  [NEIGHBORHOODS-POLLING] Pulando ${neighborhood.name} - mudança local ainda pendente`);
+              continue;
+            }
+            
             neighborhoodsStore.upsertNeighborhood(neighborhood as Neighborhood);
           }
         }
@@ -245,6 +260,10 @@ export const useRealtimeSync = () => {
           
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             console.log('✅ Atualizando bairro via webhook:', payload.new.id, 'status:', payload.new.is_active);
+            
+            // Registrar que este bairro foi sincronizado via webhook
+            lastLocalNeighborhoodUpdate.set(payload.new.id, Date.now() + 10000); // +10s para evitar polling logo depois
+            
             neighborhoodsStore.upsertNeighborhood(payload.new as Neighborhood);
           } else if (payload.eventType === 'DELETE') {
             console.log('🗑️ Removendo bairro via webhook:', payload.old.id);
