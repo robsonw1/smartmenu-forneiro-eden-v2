@@ -196,31 +196,33 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       console.log('💾 [UPDATE-SETTINGS] INICIANDO SALVAMENTO NO SUPABASE');
       console.log('💾 [UPDATE-SETTINGS] Schedule que será salvo:', currentSettings.schedule);
 
-      // 3️⃣ PREPARAR DADOS - SCHEDULE DEVE ESTAR 100% COMPLETO
+      // 3️⃣ PREPARAR DADOS - SEPARAR COLUNAS NORMALIZADAS do JSONB
+      // ✅ CRÍTICO: Salvar JSONB em uma coluna separada para garantir persistência
+      const jsonbValue = {
+        name: currentSettings.name,
+        phone: currentSettings.phone,
+        address: currentSettings.address,
+        slogan: currentSettings.slogan,
+        schedule: currentSettings.schedule, // ✅ SCHEDULE COMPLETO NO JSONB
+        isManuallyOpen: currentSettings.isManuallyOpen,
+        deliveryTimeMin: currentSettings.deliveryTimeMin,
+        deliveryTimeMax: currentSettings.deliveryTimeMax,
+        pickupTimeMin: currentSettings.pickupTimeMin,
+        pickupTimeMax: currentSettings.pickupTimeMax,
+        orderAlertEnabled: currentSettings.orderAlertEnabled,
+        sendOrderSummaryToWhatsApp: currentSettings.sendOrderSummaryToWhatsApp,
+      };
+
       const updateData: any = {
-        value: {
-          name: currentSettings.name,
-          phone: currentSettings.phone,
-          address: currentSettings.address,
-          slogan: currentSettings.slogan,
-          schedule: currentSettings.schedule, // ✅ SCHEDULE COMPLETO
-          isManuallyOpen: currentSettings.isManuallyOpen,
-          deliveryTimeMin: currentSettings.deliveryTimeMin,
-          deliveryTimeMax: currentSettings.deliveryTimeMax,
-          pickupTimeMin: currentSettings.pickupTimeMin,
-          pickupTimeMax: currentSettings.pickupTimeMax,
-          orderAlertEnabled: currentSettings.orderAlertEnabled,
-          sendOrderSummaryToWhatsApp: currentSettings.sendOrderSummaryToWhatsApp,
-        },
-        // 🖨️  COLUNAS PRINTNODE - SALVAR TAMBÉM NAS COLUNAS NORMALIZADAS
+        // ✅ JSONB completo com todos os dados complexos
+        value: jsonbValue,
+        // 🖨️  COLUNAS NORMALIZADAS PARA BUSCA/PERFORMANCE
         printnode_printer_id: currentSettings.printnode_printer_id || null,
         print_mode: currentSettings.print_mode || 'auto',
         auto_print_pix: currentSettings.auto_print_pix ?? false,
         auto_print_card: currentSettings.auto_print_card ?? false,
         auto_print_cash: currentSettings.auto_print_cash ?? false,
-        // 🔓 COLUNA DE ABERTURA/FECHAMENTO MANUAL - SALVAR TAMBÉM NA COLUNA NORMALIZADA
         is_manually_open: currentSettings.isManuallyOpen,
-        // SCHEDULING
         enable_scheduling: currentSettings.enableScheduling,
         min_schedule_minutes: currentSettings.minScheduleMinutes,
         max_schedule_days: currentSettings.maxScheduleDays,
@@ -231,39 +233,47 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         updated_at: new Date().toISOString(),
       };
 
-      console.log('📤 [UPDATE-SETTINGS] Schedule no updateData:', updateData.value.schedule);
+      console.log('📤 [UPDATE-SETTINGS] JSONB value.schedule:', jsonbValue.schedule);
       console.log('🖨️  [UPDATE-SETTINGS] PrintNode Printer ID:', updateData.printnode_printer_id);
-      console.log('🖨️  [UPDATE-SETTINGS] PrintNode Mode:', updateData.print_mode);
-      console.log('🔓 [UPDATE-SETTINGS] Is Manually Open:', updateData.is_manually_open);
-      console.log('📤 [UPDATE-SETTINGS] Fazendo UPDATE direto no Supabase...');
 
-      // 4️⃣ FAZER UPDATE DIRETO (sem Edge Function)
-      const { data, error } = await supabase
+      // 4️⃣ FAZER UPDATE COM MERGE EXPLÍCITO PARA GARANTIR JSONB SALVA
+      // ⚠️  IMPORTANTE: Usar || null em campos opcionais para evitar undefined
+      const { data: updateResult, error: updateError } = await supabase
         .from('settings')
-        .update(updateData)
+        .update({
+          value: JSON.stringify(jsonbValue) !== '{}' ? jsonbValue : updateData.value,
+          printnode_printer_id: updateData.printnode_printer_id,
+          print_mode: updateData.print_mode,
+          auto_print_pix: updateData.auto_print_pix,
+          auto_print_card: updateData.auto_print_card,
+          auto_print_cash: updateData.auto_print_cash,
+          is_manually_open: updateData.is_manually_open,
+          enable_scheduling: updateData.enable_scheduling,
+          min_schedule_minutes: updateData.min_schedule_minutes,
+          max_schedule_days: updateData.max_schedule_days,
+          allow_scheduling_on_closed_days: updateData.allow_scheduling_on_closed_days,
+          allow_scheduling_outside_business_hours: updateData.allow_scheduling_outside_business_hours,
+          respect_business_hours_for_scheduling: updateData.respect_business_hours_for_scheduling,
+          allow_same_day_scheduling_outside_hours: updateData.allow_same_day_scheduling_outside_hours,
+          updated_at: updateData.updated_at,
+        })
         .eq('id', 'store-settings')
         .select();
 
-      if (error) {
-        console.error('❌ [UPDATE-SETTINGS] ERRO NO UPDATE:', error);
-        console.error('❌ [UPDATE-SETTINGS] Mensagem detalhada:', error.message);
-        console.error('❌ [UPDATE-SETTINGS] Hint:', (error as any).hint);
-        throw error;
+      if (updateError) {
+        console.error('❌ [UPDATE-SETTINGS] ERRO NO UPDATE:', updateError);
+        throw updateError;
       }
 
-      // 5️⃣ VERIFICAR QUE REALMENTE SALVOU
-      if (data && data.length > 0) {
-        const savedData = data[0] as any;
+      // 5️⃣ VERIFICAR RESULTADO
+      if (updateResult && updateResult.length > 0) {
+        const savedData = updateResult[0] as any;
         const savedValue = savedData.value || {};
         const savedSchedule = savedValue.schedule;
         
         console.log('✅ [UPDATE-SETTINGS] CONFIRMADO! Dados salvos:');
-        console.log('✅ [UPDATE-SETTINGS] Schedule salvo (thursday):', savedSchedule?.thursday);
-        console.log('🖨️  [UPDATE-SETTINGS] PrintNode salvo - ID:', savedData.printnode_printer_id, ', Mode:', savedData.print_mode);
-        console.log('🔓 [UPDATE-SETTINGS] Is Manually Open salvo:', savedData.is_manually_open);
-        console.log('✅ [UPDATE-SETTINGS] Updated At:', savedData.updated_at);
-      } else {
-        console.warn('⚠️  [UPDATE-SETTINGS] Update retornou vazio');
+        console.log('✅ [UPDATE-SETTINGS] Schedule.thursday:', savedSchedule?.thursday);
+        console.log('✅ [UPDATE-SETTINGS] is_manually_open:', savedData.is_manually_open);
       }
 
       console.log('💾 [UPDATE-SETTINGS] ════════════════════════════════════════');
