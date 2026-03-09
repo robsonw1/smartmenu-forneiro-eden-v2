@@ -434,6 +434,35 @@ const AdminDashboard = () => {
 
       // Atualizar o store localmente também (o realtime vai sincronizar para todos)
       toggleActive(productId);
+      
+      // Fazer SELECT fresh do produto para garantir sincronização imediata no admin
+      const { data: freshProduct, error: selectError } = await (supabase as any)
+        .from('products')
+        .select('*')
+        .eq('id', productId)
+        .single();
+
+      if (!selectError && freshProduct) {
+        // Upsert com dados frescos para sincronizar o state imediatamente
+        const freshData = freshProduct.data;
+        useCatalogStore.getState().upsertProduct({
+          id: freshProduct.id,
+          name: freshProduct.name || '',
+          description: freshData?.description || '',
+          price: freshData?.price,
+          priceSmall: freshData?.price_small,
+          priceLarge: freshData?.price_large,
+          category: freshData?.category || 'outros',
+          ingredients: freshData?.ingredients || [],
+          image: freshData?.image,
+          isActive: freshData?.is_active ?? true,
+          isPopular: freshData?.is_popular ?? false,
+          isVegetarian: freshData?.is_vegetarian ?? false,
+          isCustomizable: freshData?.is_customizable ?? false,
+          isNew: freshData?.is_new ?? false,
+        });
+      }
+      
       console.log(`✅ Produto ${productId} atualizado: isActive = ${newActiveState}`);
     } catch (error) {
       console.error('Erro ao sincronizar ativação do produto:', error);
