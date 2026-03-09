@@ -1,7 +1,7 @@
 import { Product } from '@/data/products';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Leaf, Star, Sparkles } from 'lucide-react';
+import { Leaf, Star, Sparkles, AlertCircle } from 'lucide-react';
 import { useUIStore } from '@/store/useStore';
 import { motion } from 'framer-motion';
 
@@ -44,16 +44,24 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.3 }}
       className={
-        "card-product group " +
-        (isUnavailable ? "cursor-not-allowed opacity-70" : "cursor-pointer")
+        "card-product group relative " +
+        (isUnavailable ? "cursor-not-allowed" : "cursor-pointer")
       }
       onClick={handleClick}
     >
+      {/* Overlay para produtos inativos */}
+      {isUnavailable && (
+        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center z-10 group-hover:bg-black/35 transition-all duration-300">
+          <AlertCircle className="w-12 h-12 text-red-500 mb-2" />
+          <div className="text-center">
+            <p className="text-white font-bold text-lg">Produto</p>
+            <p className="text-white font-bold text-lg">esgotado</p>
+          </div>
+        </div>
+      )}
+
       {/* Badges */}
       <div className="flex flex-wrap gap-2 p-4 pb-0">
-        {isUnavailable && (
-          <Badge variant="secondary">Indisponível</Badge>
-        )}
         {product.isPopular && (
           <Badge variant="default" className="badge-popular flex items-center gap-1">
             <Star className="w-3 h-3" />
@@ -114,4 +122,3 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
     </motion.div>
   );
 }
-
