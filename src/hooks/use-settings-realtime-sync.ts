@@ -112,10 +112,14 @@ export function useSettingsRealtimeSync() {
           event: 'UPDATE',
           schema: 'public',
           table: 'settings',
-          filter: 'id=eq.store-settings',
+          // ✅ REMOVIDO: filter: 'id=eq.store-settings' - causava mismatch no Realtime
+          // Apenas escuta UPDATE na tabela settings, qualquer linha
         },
         async (payload: any) => {
           if (!isSubscribed) return;
+          
+          // ✅ CRITICAL: Filtrar apenas store-settings manualmente
+          if (payload.new.id !== 'store-settings') return;
 
           console.log('⚡⚡⚡ [SETTINGS-SYNC] MUDANÇA DETECTADA EM TEMPO REAL ⚡⚡⚡');
           console.log('🔍 [SETTINGS-SYNC] Payload completo:', JSON.stringify(payload.new, null, 2));
