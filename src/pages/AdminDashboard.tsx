@@ -1494,13 +1494,17 @@ const AdminDashboard = () => {
                   <TableBody>
                     {(neighborhoods ?? []).filter(Boolean).map((nb: any) => {
                       if (!nb?.id) return null;
+                      
+                      // Garantir que isActive sempre é boolean (evita erro controlled/uncontrolled)
+                      const isActive = nb?.isActive === true;
+                      
                       return (
-                      <TableRow key={nb.id} className={!nb?.isActive ? 'opacity-50' : ''}>
+                      <TableRow key={nb.id} className={!isActive ? 'opacity-50' : ''}>
                         <TableCell className="font-medium">{nb.name}</TableCell>
                         <TableCell>
                           <Input 
                             type="number" 
-                            value={nb.deliveryFee} 
+                            value={nb.deliveryFee ?? ''} 
                             className="w-24"
                             step="0.50"
                             onChange={(e) => {
@@ -1513,7 +1517,7 @@ const AdminDashboard = () => {
                         </TableCell>
                         <TableCell>
                           <Switch 
-                            checked={nb.isActive} 
+                            checked={isActive} 
                             onCheckedChange={() => handleToggleNeighborhoodActive(nb.id)}
                           />
                         </TableCell>
