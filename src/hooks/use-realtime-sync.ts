@@ -10,7 +10,25 @@ import type { Product, Order, Neighborhood } from '@/data/products';
  * Converte os dados do Supabase (JSON) para o formato Product esperado
  */
 const parseProductFromSupabase = (supabaseData: any): Product => {
-  const data = supabaseData.data || {};
+  let data = supabaseData.data || {};
+  
+  // Se data for string (às vezes Supabase retorna como JSON string), fazer parse
+  if (typeof data === 'string') {
+    try {
+      data = JSON.parse(data);
+    } catch (e) {
+      console.warn('❌ Erro ao fazer parse de data JSON:', e);
+      data = {};
+    }
+  }
+  
+  console.log('🔄 Parseando produto do Realtime:', {
+    id: supabaseData.id,
+    name: supabaseData.name,
+    is_active: data.is_active,
+    data: data
+  });
+  
   return {
     id: supabaseData.id,
     name: supabaseData.name || data.name,
@@ -35,6 +53,7 @@ const parseProductFromSupabase = (supabaseData: any): Product => {
  */
 export const useRealtimeSync = () => {
   useEffect(() => {
+    console.log('🚀 Iniciando useRealtimeSync hook...');
     let isMounted = true;
 
     // Função para carregar dados iniciais
@@ -52,6 +71,7 @@ export const useRealtimeSync = () => {
         
         if (products && isMounted) {
           const catalogStore = useCatalogStore.getState();
+          console.log(`✅ Carregados ${products.length} produtos inicialmente`);
           for (const product of products) {
             catalogStore.upsertProduct(parseProductFromSupabase(product));
           }
@@ -86,15 +106,18 @@ export const useRealtimeSync = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'products' },
-        (payload) => {
+        (payload: any) => {
           if (!isMounted) return;
+          console.log('🔔 Webhook Produtos Realtime recebido:', payload.eventType, payload.new?.id, payload.new?.name);
           const catalogStore = useCatalogStore.getState();
           
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const product = parseProductFromSupabase(payload.new);
+            const product = parseProductFromSupabase(payload.new as any);
+            console.log('✅ Atualizando produto no store:', product.id, 'isActive:', product.isActive);
             catalogStore.upsertProduct(product);
           } else if (payload.eventType === 'DELETE') {
             const oldProduct = payload.old as any;
+            console.log('🗑️ Removendo produto:', oldProduct.id);
             catalogStore.removeProduct(oldProduct.id);
           }
         }
@@ -107,7 +130,7 @@ export const useRealtimeSync = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders' },
-        (payload) => {
+        (payload: any) => {
           if (!isMounted) return;
           const ordersStore = useOrdersStore.getState();
           
@@ -131,7 +154,7 @@ export const useRealtimeSync = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'neighborhoods' },
-        (payload) => {
+        (payload: any) => {
           if (!isMounted) return;
           const neighborhoodsStore = useNeighborhoodsStore.getState();
           
