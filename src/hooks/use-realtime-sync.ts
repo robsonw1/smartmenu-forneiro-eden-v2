@@ -22,11 +22,14 @@ const parseProductFromSupabase = (supabaseData: any): Product => {
     }
   }
   
+  // ✅ Determinar isActive: se está explicitamente false, é false. Caso contrário, true
+  const isActive = data.is_active === true || (data.is_active !== false && data.is_active !== undefined);
+  
   console.log('🔄 Parseando produto do Realtime:', {
     id: supabaseData.id,
     name: supabaseData.name,
-    is_active: data.is_active,
-    data: data
+    is_active_raw: data.is_active,
+    is_active_parsed: isActive,
   });
   
   return {
@@ -42,7 +45,7 @@ const parseProductFromSupabase = (supabaseData: any): Product => {
     isPopular: data.is_popular ?? false,
     isNew: data.is_new ?? false,
     isVegetarian: data.is_vegetarian ?? false,
-    isActive: data.is_active !== false,
+    isActive: isActive,
     isCustomizable: data.is_customizable ?? false,
   };
 };
