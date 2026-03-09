@@ -78,6 +78,9 @@ export const useRealtimeSync = () => {
     let productsPollInterval: NodeJS.Timeout | null = null;
     let neighborhoodsPollInterval: NodeJS.Timeout | null = null;
     
+    // Rastrear tempo da última mudança local para cada produto
+    const lastLocalProductUpdate = new Map<string, number>();
+    
     // Rastrear tempo da última mudança local para cada bairro
     const lastLocalNeighborhoodUpdate = new Map<string, number>();
 
@@ -92,8 +95,31 @@ export const useRealtimeSync = () => {
         
         if (products && isMounted) {
           const catalogStore = useCatalogStore.getState();
+          const currentTime = Date.now();
+          const currentProducts = new Set(products.map((p: any) => p.id));
+          
+          // ✅ Sincronizar produtos existentes
           for (const product of products) {
+            // Verificar se houve mudança local recente (últimos 3 segundos)
+            const lastUpdate = lastLocalProductUpdate.get(product.id) || 0;
+            const timeSinceLastUpdate = currentTime - lastUpdate;
+            
+            if (timeSinceLastUpdate < 3000) {
+              // Ignorar se foi modificado há menos de 3 segundos (ainda esperando webhook)
+              console.log(`⏭️  [PRODUCTS-POLLING] Pulando ${product.name} - mudança local ainda pendente`);
+              continue;
+            }
+            
             catalogStore.upsertProduct(parseProductFromSupabase(product));
+          }
+          
+          // ✅ Detectar e remover produtos que foram deletados no banco
+          const storeProducts = catalogStore.getAll();
+          for (const storeProduct of storeProducts) {
+            if (!currentProducts.has(storeProduct.id)) {
+              console.log(`🗑️ [PRODUCTS-POLLING] Produto deletado detectado: ${storeProduct.id} - ${storeProduct.name}`);
+              catalogStore.removeProduct(storeProduct.id);
+            }
           }
         }
       } catch (error) {
@@ -190,17 +216,21 @@ export const useRealtimeSync = () => {
         { event: '*', schema: 'public', table: 'products' },
         (payload: any) => {
           if (!isMounted) return;
-          console.log('🔔 Webhook Produtos Realtime recebido:', payload.eventType, payload.new?.id, payload.new?.name);
+          console.log('🔔 Webhook Produtos Realtime recebido:', payload.eventType, payload.new?.id || payload.old?.id, payload.new?.name || payload.old?.name);
           
           const catalogStore = useCatalogStore.getState();
           
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const product = parseProductFromSupabase(payload.new as any);
-            console.log('✅ Atualizando produto via webhook:', product.id, 'isActive:', product.isActive);
+            console.log('✅ Atualizando produto via webhook:', product.id, 'isActive:', product.isActive, 'price:', product.price ?? product.priceSmall);
+            
+            // Registrar que este produto foi sincronizado via webhook
+            lastLocalProductUpdate.set(payload.new.id, Date.now() + 10000); // +10s para evitar polling logo depois
+            
             catalogStore.upsertProduct(product);
           } else if (payload.eventType === 'DELETE') {
             const oldProduct = payload.old as any;
-            console.log('🗑️ Removendo produto via webhook:', oldProduct.id);
+            console.log('🗑️ Removendo produto via webhook:', oldProduct.id, oldProduct.name);
             catalogStore.removeProduct(oldProduct.id);
           }
         }
