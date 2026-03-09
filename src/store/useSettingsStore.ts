@@ -265,16 +265,30 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         throw updateError;
       }
 
-      // 5️⃣ VERIFICAR RESULTADO
-      if (updateResult && updateResult.length > 0) {
-        const savedData = updateResult[0] as any;
-        const savedValue = savedData.value || {};
-        const savedSchedule = savedValue.schedule;
-        
-        console.log('✅ [UPDATE-SETTINGS] CONFIRMADO! Dados salvos:');
-        console.log('✅ [UPDATE-SETTINGS] Schedule.thursday:', savedSchedule?.thursday);
-        console.log('✅ [UPDATE-SETTINGS] is_manually_open:', savedData.is_manually_open);
+      // 5️⃣ VERIFICAR RESULTADO - MAS FAZER SELECT FRESH PARA GARANTIR
+      // ⚠️  IMPORTANTE: O data do UPDATE pode ter valores antigos em cache
+      // Fazer um SELECT simples para garantir que foi realmente salvo
+      console.log('🔍 [UPDATE-SETTINGS] Fazendo SELECT fresh para GARANTIR persistência...');
+      const { data: freshData, error: selectError } = await supabase
+        .from('settings')
+        .select('*')
+        .eq('id', 'store-settings')
+        .single();
+
+      if (selectError || !freshData) {
+        console.error('❌ [UPDATE-SETTINGS] ERRO no SELECT fresh:', selectError);
+        throw selectError;
       }
+
+      // 5️⃣ VERIFICAR RESULTADO COM DADOS FRESCOS
+      const savedData = freshData as any;
+      const savedValue = savedData.value || {};
+      const savedSchedule = savedValue.schedule;
+      
+      console.log('✅ [UPDATE-SETTINGS] CONFIRMADO! Dados salvos (FRESH):');
+      console.log('✅ [UPDATE-SETTINGS] Schedule.monday:', savedSchedule?.monday);
+      console.log('✅ [UPDATE-SETTINGS] Schedule.thursday:', savedSchedule?.thursday);
+      console.log('✅ [UPDATE-SETTINGS] is_manually_open:', savedData.is_manually_open);
 
       console.log('💾 [UPDATE-SETTINGS] ════════════════════════════════════════');
     } catch (error) {
