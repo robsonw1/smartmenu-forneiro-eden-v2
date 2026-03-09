@@ -481,6 +481,8 @@ const AdminDashboard = () => {
       const newState = !settingsForm.orderAlertEnabled;
       setSettingsForm({ ...settingsForm, orderAlertEnabled: newState });
       await updateSettings({ ...settingsForm, orderAlertEnabled: newState });
+      // ✅ Recarregar FRESH para garantir que reflete IMEDIATAMENTE
+      await useSettingsStore.getState().loadSettingsFromSupabase();
       toast.success(newState ? '🔔 Som de alerta ativado' : '🔕 Som de alerta desativado');
     } catch (error) {
       console.error('Erro ao sincronizar som de alerta:', error);
@@ -810,6 +812,8 @@ const AdminDashboard = () => {
     
     // ✅ SINCRONIZAR para Supabase (ativa Realtime)
     await updateSettings({ isManuallyOpen: newState });
+    // ✅ Recarregar FRESH para garantir que reflete IMEDIATAMENTE
+    await useSettingsStore.getState().loadSettingsFromSupabase();
     
     toast.success(newState ? '✓ Loja aberta!' : '✗ Loja fechada!');
   };
