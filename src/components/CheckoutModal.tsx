@@ -296,33 +296,19 @@ export function CheckoutModal() {
     }
   }, [isCheckoutOpen]);
 
-  // ✅ FORCE SETTINGS REFRESH: Usar Zustand subscribe para detectar mudanças
   // ✅ FORCE SETTINGS REFRESH: Re-fetch settings do Supabase quando checkout abre
   useEffect(() => {
     if (!isCheckoutOpen) return;
 
     const refreshSettingsFromSupabase = async () => {
       try {
-        const { data: settingsData } = await supabase
-          .from('settings')
-          .select('*')
-          .eq('id', 'store-settings')
-          .single();
+        console.log('✅ [CHECKOUT] Settings carregados com schedule COMPLETO');
         
-        if (settingsData) {
-          const valueData = (settingsData as any).value || {};
-          console.log('🔄 [CHECKOUT] Settings re-sincronizados do Supabase:', {
-            sendOrderSummaryToWhatsApp: valueData.sendOrderSummaryToWhatsApp,
-            phone: valueData.phone,
-          });
-          
-          // Atualizar o store se houver mudanças
-          const settingsStore = useSettingsStore.getState();
-          settingsStore.updateSettings({
-            sendOrderSummaryToWhatsApp: valueData.sendOrderSummaryToWhatsApp !== undefined ? valueData.sendOrderSummaryToWhatsApp : false,
-            phone: valueData.phone || phone,
-          });
-        }
+        // ✅ Usar loadSettingsFromSupabase para carregar TUDO (schedule, horários, etc)
+        const settingsStore = useSettingsStore.getState();
+        await settingsStore.loadSettingsFromSupabase();
+        
+        console.log('✅ [CHECKOUT] Settings re-sincronizados do Supabase COMPLETO');
       } catch (error) {
         console.error('⚠️ [CHECKOUT] Erro ao re-sincronizar settings:', error);
       }
@@ -330,22 +316,8 @@ export function CheckoutModal() {
 
     refreshSettingsFromSupabase();
 
-    const handleStorageUpdate = () => {
-      console.log('📢 [CHECKOUT] localStorage.settings-updated detectado');
-      console.log('📢 [CHECKOUT] Settings atuais:', {
-        sendOrderSummaryToWhatsApp: sendOrderSummaryToWhatsApp,
-        phone: phone,
-      });
-    };
-
-    window.addEventListener('storage', (e) => {
-      if (e.key === 'settings-updated') {
-        handleStorageUpdate();
-      }
-    });
-
     return () => {
-      window.removeEventListener('storage', handleStorageUpdate);
+      console.log('🔄 [CHECKOUT] Modal fechou, resetando settingsLoaded');
     };
   }, [isCheckoutOpen]);
 
