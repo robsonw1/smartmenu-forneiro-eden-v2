@@ -53,11 +53,37 @@ const parseProductFromSupabase = (supabaseData: any): Product => {
 /**
  * Hook que sincroniza os dados da aplicação com o Supabase em tempo real
  * Carrega os dados iniciais e escuta mudanças em produtos, pedidos, bairros e configurações
+ * 
+ * ESTRATÉGIA PRODUTOS:
+ * - Webhook Realtime: Primeira opção (ideal)
+ * - Polling (10s): Fallback se webhook falhar
+ * - Ambos usam parseProductFromSupabase() para converter dados corretamente
  */
 export const useRealtimeSync = () => {
   useEffect(() => {
     console.log('🚀 Iniciando useRealtimeSync hook...');
     let isMounted = true;
+    let productsPollInterval: NodeJS.Timeout | null = null;
+
+    // Função para sincronizar produtos via SELECT fresh (usado por webhook e polling)
+    const syncProductsFromSupabase = async () => {
+      if (!isMounted) return;
+      
+      try {
+        const { data: products } = await (supabase as any)
+          .from('products')
+          .select('*');
+        
+        if (products && isMounted) {
+          const catalogStore = useCatalogStore.getState();
+          for (const product of products) {
+            catalogStore.upsertProduct(parseProductFromSupabase(product));
+          }
+        }
+      } catch (error) {
+        console.error('❌ Erro ao sincronizar produtos:', error);
+      }
+    };
 
     // Função para carregar dados iniciais
     const loadInitialData = async () => {
@@ -103,6 +129,7 @@ export const useRealtimeSync = () => {
 
     loadInitialData();
 
+    // ✅ WEBHOOK REALTIME: Primeira opção para sincronizar produtos
     // Sincronizar Produtos (Catálogo)
     const productsChannel = supabase
       .channel('realtime:products')
@@ -112,20 +139,40 @@ export const useRealtimeSync = () => {
         (payload: any) => {
           if (!isMounted) return;
           console.log('🔔 Webhook Produtos Realtime recebido:', payload.eventType, payload.new?.id, payload.new?.name);
+          
           const catalogStore = useCatalogStore.getState();
           
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const product = parseProductFromSupabase(payload.new as any);
-            console.log('✅ Atualizando produto no store:', product.id, 'isActive:', product.isActive);
+            console.log('✅ Atualizando produto via webhook:', product.id, 'isActive:', product.isActive);
             catalogStore.upsertProduct(product);
           } else if (payload.eventType === 'DELETE') {
             const oldProduct = payload.old as any;
-            console.log('🗑️ Removendo produto:', oldProduct.id);
+            console.log('🗑️ Removendo produto via webhook:', oldProduct.id);
             catalogStore.removeProduct(oldProduct.id);
           }
         }
       )
-      .subscribe();
+      .subscribe((status, error) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ [REALTIME-PRODUCTS] Canal Realtime ATIVO - ouvindo mudanças');
+        } else if (error) {
+          console.error('❌ [REALTIME-PRODUCTS] Erro ao conectar:', error?.message);
+          console.log('🔄 [REALTIME-PRODUCTS] Ativando polling fallback para produtos...');
+        }
+      });
+
+    // ⏰ POLLING FALLBACK: Se webhook falhar, faz sync a cada 10 segundos
+    productsPollInterval = setInterval(async () => {
+      if (!isMounted) return;
+      
+      try {
+        console.log('🔄 [PRODUCTS-POLLING] Verificando atualizações de produtos...');
+        await syncProductsFromSupabase();
+      } catch (err) {
+        console.error('❌ [PRODUCTS-POLLING] Erro no polling:', err);
+      }
+    }, 10000); // 10 segundos
 
     // Sincronizar Pedidos
     const ordersChannel = supabase
@@ -173,9 +220,13 @@ export const useRealtimeSync = () => {
     // ⚠️ NOTA: Sincronização de Settings agora é feita exclusivamente em use-settings-realtime-sync.ts
     // para evitar conflito de canais realtime. Este hook foi removido daqui.
 
-    // Cleanup: Desinscrever de todos os canais ao desmontar
+    // Cleanup: Desinscrever de todos os canais ao desmontar e limpar polling
     return () => {
       isMounted = false;
+      if (productsPollInterval) {
+        clearInterval(productsPollInterval);
+        console.log('🛑 [PRODUCTS-POLLING] Polling de produtos finalizado');
+      }
       productsChannel.unsubscribe();
       ordersChannel.unsubscribe();
       neighborhoodsChannel.unsubscribe();
