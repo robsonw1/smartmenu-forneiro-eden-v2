@@ -81,6 +81,7 @@ import { ptBR } from 'date-fns/locale';
 import { useTheme } from '@/hooks/use-theme';
 import { useOrderAlertSound } from '@/hooks/use-order-alert-sound';
 import { useSettingsRealtimeSync } from '@/hooks/use-settings-realtime-sync';
+import { useRealtimeSync } from '@/hooks/use-realtime-sync';
 import { useSettingsInitialLoad } from '@/hooks/use-settings-initial-load';
 import logoForneiro from '@/assets/logo-forneiro.jpg';
 
@@ -142,6 +143,9 @@ const AdminDashboard = () => {
 
   // Order alert sound hook - ativa/desativa automaticamente baseado nas settings
   useOrderAlertSound();
+
+  // ✅ Sincronização em tempo real de TODOS os dados (produtos, pedidos, configurações, bairros)
+  useRealtimeSync();
 
   // Carregamento inicial das settings do Supabase
   useSettingsInitialLoad();
