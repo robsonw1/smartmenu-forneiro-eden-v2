@@ -21,6 +21,11 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
     setProductModalOpen(true);
   };
 
+  // Logging para debug de realtime sync
+  if (isUnavailable) {
+    console.log(`📦 Produto ${product.id} (${product.name}) está UNAVAILABLE (isActive: ${product.isActive})`);
+  }
+
   const getPrice = () => {
     if (product.price) return product.price;
     if (product.priceSmall && product.priceLarge) {
@@ -122,3 +127,4 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
     </motion.div>
   );
 }
+
