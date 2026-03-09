@@ -37,6 +37,7 @@ export function PrintNodeSettings() {
 
   const settings = useSettingsStore((s) => s.settings);
   const updateSettings = useSettingsStore((s) => s.updateSettings);
+  const loadSettingsFromSupabase = useSettingsStore((s) => s.loadSettingsFromSupabase);
   const syncSettingsToSupabase = useSettingsStore((s) => s.syncSettingsToSupabase);
 
   // Carregar configurações existentes
@@ -70,6 +71,9 @@ export function PrintNodeSettings() {
         auto_print_card: config.autoPrintCard,
         auto_print_cash: config.autoPrintCash,
       });
+
+      // ✅ Recarregar FRESH do banco para garantir que reflete IMEDIATAMENTE
+      await loadSettingsFromSupabase();
       
       setMessage({ type: 'success', text: 'Configurações salvas com sucesso!' });
     } catch (error) {
