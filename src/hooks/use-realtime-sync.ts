@@ -64,6 +64,7 @@ export const useRealtimeSync = () => {
     console.log('🚀 Iniciando useRealtimeSync hook...');
     let isMounted = true;
     let productsPollInterval: NodeJS.Timeout | null = null;
+    let neighborhoodsPollInterval: NodeJS.Timeout | null = null;
 
     // Função para sincronizar produtos via SELECT fresh (usado por webhook e polling)
     const syncProductsFromSupabase = async () => {
@@ -82,6 +83,26 @@ export const useRealtimeSync = () => {
         }
       } catch (error) {
         console.error('❌ Erro ao sincronizar produtos:', error);
+      }
+    };
+
+    // Função para sincronizar bairros via SELECT fresh (usado por webhook e polling)
+    const syncNeighborhoodsFromSupabase = async () => {
+      if (!isMounted) return;
+      
+      try {
+        const { data: neighborhoods } = await (supabase as any)
+          .from('neighborhoods')
+          .select('*');
+        
+        if (neighborhoods && isMounted) {
+          const neighborhoodsStore = useNeighborhoodsStore.getState();
+          for (const neighborhood of neighborhoods) {
+            neighborhoodsStore.upsertNeighborhood(neighborhood as Neighborhood);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Erro ao sincronizar bairros:', error);
       }
     };
 
@@ -174,6 +195,18 @@ export const useRealtimeSync = () => {
       }
     }, 10000); // 10 segundos
 
+    // ⏰ POLLING FALLBACK: Se webhook de bairros falhar, faz sync a cada 10 segundos
+    neighborhoodsPollInterval = setInterval(async () => {
+      if (!isMounted) return;
+      
+      try {
+        console.log('🔄 [NEIGHBORHOODS-POLLING] Verificando atualizações de bairros...');
+        await syncNeighborhoodsFromSupabase();
+      } catch (err) {
+        console.error('❌ [NEIGHBORHOODS-POLLING] Erro no polling:', err);
+      }
+    }, 10000); // 10 segundos
+
     // Sincronizar Pedidos
     const ordersChannel = supabase
       .channel('realtime:orders')
@@ -206,16 +239,27 @@ export const useRealtimeSync = () => {
         { event: '*', schema: 'public', table: 'neighborhoods' },
         (payload: any) => {
           if (!isMounted) return;
+          console.log('🔔 Webhook Bairros Realtime recebido:', payload.eventType, payload.new?.id || payload.old?.id, payload.new?.name || payload.old?.name);
+          
           const neighborhoodsStore = useNeighborhoodsStore.getState();
           
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            console.log('✅ Atualizando bairro via webhook:', payload.new.id, 'status:', payload.new.is_active);
             neighborhoodsStore.upsertNeighborhood(payload.new as Neighborhood);
           } else if (payload.eventType === 'DELETE') {
+            console.log('🗑️ Removendo bairro via webhook:', payload.old.id);
             neighborhoodsStore.removeNeighborhood((payload.old as Neighborhood).id);
           }
         }
       )
-      .subscribe();
+      .subscribe((status, error) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ [REALTIME-NEIGHBORHOODS] Canal Realtime ATIVO - ouvindo mudanças');
+        } else if (error) {
+          console.error('❌ [REALTIME-NEIGHBORHOODS] Erro ao conectar:', error?.message);
+          console.log('🔄 [REALTIME-NEIGHBORHOODS] Ativando polling fallback para bairros...');
+        }
+      });
 
     // ⚠️ NOTA: Sincronização de Settings agora é feita exclusivamente em use-settings-realtime-sync.ts
     // para evitar conflito de canais realtime. Este hook foi removido daqui.
@@ -226,6 +270,10 @@ export const useRealtimeSync = () => {
       if (productsPollInterval) {
         clearInterval(productsPollInterval);
         console.log('🛑 [PRODUCTS-POLLING] Polling de produtos finalizado');
+      }
+      if (neighborhoodsPollInterval) {
+        clearInterval(neighborhoodsPollInterval);
+        console.log('🛑 [NEIGHBORHOODS-POLLING] Polling de bairros finalizado');
       }
       productsChannel.unsubscribe();
       ordersChannel.unsubscribe();
