@@ -405,6 +405,7 @@ const AdminDashboard = () => {
 
     try {
       const newActiveState = !product.isActive;
+      console.log(`🔄 Toggling produto ${productId}: isActive ${product.isActive} -> ${newActiveState}`);
       const dataJson = {
         description: product.description,
         category: product.category,
@@ -420,6 +421,8 @@ const AdminDashboard = () => {
         is_new: product.isNew || false,
       };
 
+      console.log('📤 Enviando UPDATE ao Supabase:', { productId, is_active: newActiveState, dataJson });
+
       // Atualizar no Supabase PRIMEIRO
       const { error } = await (supabase as any)
         .from('products')
@@ -432,6 +435,8 @@ const AdminDashboard = () => {
         return;
       }
 
+      console.log('✅ UPDATE concluído. Disparará webhook Realtime em breve...');
+
       // Atualizar o store localmente também (o realtime vai sincronizar para todos)
       toggleActive(productId);
       
@@ -443,6 +448,7 @@ const AdminDashboard = () => {
         .single();
 
       if (!selectError && freshProduct) {
+        console.log('📥 SELECT fresh recebido:', { id: freshProduct.id, name: freshProduct.name, data: freshProduct.data });
         // Upsert com dados frescos para sincronizar o state imediatamente
         const freshData = freshProduct.data;
         useCatalogStore.getState().upsertProduct({
