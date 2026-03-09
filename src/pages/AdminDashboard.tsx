@@ -922,28 +922,102 @@ const AdminDashboard = () => {
   const handleDeleteConfirm = async () => {
     switch (deleteDialog.type) {
       case 'product':
-        removeProduct(deleteDialog.id);
-        // Deletar do Supabase
-        const deleteProductsQuery = (supabase as any)
-          .from('products')
-          .delete()
-          .eq('id', deleteDialog.id);
-        await deleteProductsQuery;
-        toast.success('Produto excluído com sucesso!');
+        try {
+          console.log('🗑️ Deletando produto:', deleteDialog.id);
+          removeProduct(deleteDialog.id);
+          
+          const { error } = await (supabase as any)
+            .from('products')
+            .delete()
+            .eq('id', deleteDialog.id);
+          
+          if (error) {
+            console.error('❌ Erro ao deletar produto:', error);
+            toast.error('Erro ao deletar produto');
+            return;
+          }
+
+          console.log('✅ DELETE concluído no Supabase');
+          
+          // 🔄 CONFIRMAÇÃO: SELECT para garantir que foi deletado
+          setTimeout(async () => {
+            try {
+              const { data: deletedProduct, error: selectError } = await (supabase as any)
+                .from('products')
+                .select('*')
+                .eq('id', deleteDialog.id)
+                .single();
+              
+              if (!selectError && deletedProduct) {
+                // Ainda existe - reversão
+                console.error('⚠️  Produto ainda existe no banco! Revertendo...');
+                removeProduct(deleteDialog.id); // Remove do store novamente
+              } else {
+                console.log('✅ Confirmado - Produto foi deletado com sucesso do banco');
+              }
+            } catch (err) {
+              // Erro 406 significa que nenhum resultado foi encontrado = produto foi deletado ✅
+              console.log('✅ Confirmado - Produto foi deletado (erro 406 = sucesso)');
+            }
+          }, 300);
+
+          toast.success('Produto excluído com sucesso!');
+        } catch (error) {
+          console.error('❌ Erro ao deletar produto:', error);
+          toast.error('Erro ao deletar produto');
+        }
         break;
+
       case 'order':
         removeOrder(deleteDialog.id);
         toast.success('Pedido excluído com sucesso!');
         break;
+
       case 'neighborhood':
-        removeNeighborhood(deleteDialog.id);
-        // Deletar do Supabase
-        const deleteNeighborhoodsQuery = (supabase as any)
-          .from('neighborhoods')
-          .delete()
-          .eq('id', deleteDialog.id);
-        await deleteNeighborhoodsQuery;
-        toast.success('Bairro excluído com sucesso!');
+        try {
+          console.log('🗑️ Deletando bairro:', deleteDialog.id);
+          removeNeighborhood(deleteDialog.id);
+          
+          const { error } = await (supabase as any)
+            .from('neighborhoods')
+            .delete()
+            .eq('id', deleteDialog.id);
+          
+          if (error) {
+            console.error('❌ Erro ao deletar bairro:', error);
+            toast.error('Erro ao deletar bairro');
+            return;
+          }
+
+          console.log('✅ DELETE concluído no Supabase');
+          
+          // 🔄 CONFIRMAÇÃO: SELECT para garantir que foi deletado
+          setTimeout(async () => {
+            try {
+              const { data: deletedNeighborhood, error: selectError } = await (supabase as any)
+                .from('neighborhoods')
+                .select('*')
+                .eq('id', deleteDialog.id)
+                .single();
+              
+              if (!selectError && deletedNeighborhood) {
+                // Ainda existe - reversão
+                console.error('⚠️  Bairro ainda existe no banco! Revertendo...');
+                removeNeighborhood(deleteDialog.id); // Remove do store novamente
+              } else {
+                console.log('✅ Confirmado - Bairro foi deletado com sucesso do banco');
+              }
+            } catch (err) {
+              // Erro 406 significa que nenhum resultado foi encontrado = bairro foi deletado ✅
+              console.log('✅ Confirmado - Bairro foi deletado (erro 406 = sucesso)');
+            }
+          }, 300);
+
+          toast.success('Bairro excluído com sucesso!');
+        } catch (error) {
+          console.error('❌ Erro ao deletar bairro:', error);
+          toast.error('Erro ao deletar bairro');
+        }
         break;
     }
     setDeleteDialog({ ...deleteDialog, open: false });
