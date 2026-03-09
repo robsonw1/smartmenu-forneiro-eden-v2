@@ -235,69 +235,35 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       console.log('🖨️  [UPDATE-SETTINGS] PrintNode Printer ID:', updateData.printnode_printer_id);
       console.log('🖨️  [UPDATE-SETTINGS] PrintNode Mode:', updateData.print_mode);
       console.log('🔓 [UPDATE-SETTINGS] Is Manually Open:', updateData.is_manually_open);
-      console.log('📤 [UPDATE-SETTINGS] Enviando via Edge Function (update-store-settings)...');
+      console.log('📤 [UPDATE-SETTINGS] Fazendo UPDATE direto no Supabase...');
 
-      // 4️⃣ ENVIAR PARA EDGE FUNCTION (com service_role para bypass de RLS)
-      console.log('🚀 [UPDATE-SETTINGS] Chamando Edge Function...');
-      
-      // ✅ Obter sessão atual para passar headers de autenticação
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('🔐 [UPDATE-SETTINGS] Sessão do usuário:', session ? '✅ Ativa' : '❌ Inativa');
-      
-      const fnResponse = await supabase.functions.invoke('update-store-settings', {
-        body: {
-          settings: {
-            ...updateData.value,
-            // Adicionar colunas normalizadas também no body
-            printnode_printer_id: updateData.printnode_printer_id,
-            print_mode: updateData.print_mode,
-            auto_print_pix: updateData.auto_print_pix,
-            auto_print_card: updateData.auto_print_card,
-            auto_print_cash: updateData.auto_print_cash,
-            isManuallyOpen: updateData.is_manually_open,
-            enableScheduling: updateData.enable_scheduling,
-            minScheduleMinutes: updateData.min_schedule_minutes,
-            maxScheduleDays: updateData.max_schedule_days,
-            allowSchedulingOnClosedDays: updateData.allow_scheduling_on_closed_days,
-            allowSchedulingOutsideBusinessHours: updateData.allow_scheduling_outside_business_hours,
-            respectBusinessHoursForScheduling: updateData.respect_business_hours_for_scheduling,
-            allowSameDaySchedulingOutsideHours: updateData.allow_same_day_scheduling_outside_hours,
-          },
-        },
-        headers: {
-          'Authorization': session ? `Bearer ${session.access_token}` : '',
-          'Content-Type': 'application/json',
-        },
-      });
+      // 4️⃣ FAZER UPDATE DIRETO (sem Edge Function)
+      const { data, error } = await supabase
+        .from('settings')
+        .update(updateData)
+        .eq('id', 'store-settings')
+        .select();
 
-      if (fnResponse.error) {
-        console.error('❌ [UPDATE-SETTINGS] ERRO NA EDGE FUNCTION:', fnResponse.error);
-        throw fnResponse.error;
-      }
-
-      const fnData = fnResponse.data as any;
-
-      if (!fnData || !fnData.success) {
-        console.error('❌ [UPDATE-SETTINGS] Edge Function retornou erro:', fnData?.error || 'Unknown error');
-        throw new Error(fnData?.error || 'Edge Function failed');
+      if (error) {
+        console.error('❌ [UPDATE-SETTINGS] ERRO NO UPDATE:', error);
+        console.error('❌ [UPDATE-SETTINGS] Mensagem detalhada:', error.message);
+        console.error('❌ [UPDATE-SETTINGS] Hint:', (error as any).hint);
+        throw error;
       }
 
       // 5️⃣ VERIFICAR QUE REALMENTE SALVOU
-      const savedData = fnData.data as any;
-      const savedValue = savedData.value || {};
-      const savedSchedule = savedValue.schedule;
-      
-      console.log('✅ [UPDATE-SETTINGS] CONFIRMADO! Dados salvos via Edge Function:');
-      console.log('✅ [UPDATE-SETTINGS] Schedule salvo (thursday):', savedSchedule?.thursday);
-      console.log('🖨️  [UPDATE-SETTINGS] PrintNode salvo - ID:', savedData.printnode_printer_id, ', Mode:', savedData.print_mode);
-      console.log('🔓 [UPDATE-SETTINGS] Is Manually Open salvo:', savedData.is_manually_open);
-      console.log('✅ [UPDATE-SETTINGS] Updated At:', savedData.updated_at);
-      console.log('📊 [UPDATE-SETTINGS] VERIFICAÇÃO EDGE FUNCTION:');
-      console.log('📊 scheduleMatch:', fnData.verification?.scheduleMatch);
-      console.log('📊 isManuallyOpenMatch:', fnData.verification?.isManuallyOpenMatch);
-      
-      if (!fnData.verification?.scheduleMatch) {
-        console.warn('⚠️  [UPDATE-SETTINGS] ALERTA: Schedule salva não corresponde ao enviado!');
+      if (data && data.length > 0) {
+        const savedData = data[0] as any;
+        const savedValue = savedData.value || {};
+        const savedSchedule = savedValue.schedule;
+        
+        console.log('✅ [UPDATE-SETTINGS] CONFIRMADO! Dados salvos:');
+        console.log('✅ [UPDATE-SETTINGS] Schedule salvo (thursday):', savedSchedule?.thursday);
+        console.log('🖨️  [UPDATE-SETTINGS] PrintNode salvo - ID:', savedData.printnode_printer_id, ', Mode:', savedData.print_mode);
+        console.log('🔓 [UPDATE-SETTINGS] Is Manually Open salvo:', savedData.is_manually_open);
+        console.log('✅ [UPDATE-SETTINGS] Updated At:', savedData.updated_at);
+      } else {
+        console.warn('⚠️  [UPDATE-SETTINGS] Update retornou vazio');
       }
 
       console.log('💾 [UPDATE-SETTINGS] ════════════════════════════════════════');
