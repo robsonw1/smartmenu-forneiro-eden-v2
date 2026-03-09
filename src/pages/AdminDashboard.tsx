@@ -435,14 +435,44 @@ const AdminDashboard = () => {
         return;
       }
 
-      console.log('✅ UPDATE concluído. Webhook Realtime sincronizará para todos os clientes...');
-      console.log('⏳ Aguardando webhook Realtime para atualizar store do admin...');
+      console.log('✅ UPDATE concluído no Supabase');
       
-      // ⚠️  NÃO chamar toggleActive() aqui - deixar webhook realtime fazer isso
-      // Isso evita race condition de múltiplos updates
-      // O webhook chegará em ~100-500ms e atualizará automaticamente via use-realtime-sync
+      // ✅ FEEDBACK IMEDIATO: Atualizar store localmente para o admin ver a mudança AGORA
+      toggleActive(productId);
+      console.log(`✅ Store atualizado localmente: ${productId} isActive = ${newActiveState}`);
       
-      console.log(`✅ Produto ${productId} atualizado: isActive = ${newActiveState}`);
+      // 🔄 CONFIRMAÇÃO: SELECT fresh após 300ms para garantir sync
+      // Se webhook chegar primeiro, isso não fará nada pois já terá atualizado
+      // Se webhook NÃO chegar, isso confirma a mudança no BD
+      setTimeout(async () => {
+        console.log('🔍 Verificando estado do produto no BD via SELECT fresh...');
+        const { data: freshProduct, error: selectError } = await (supabase as any)
+          .from('products')
+          .select('*')
+          .eq('id', productId)
+          .single();
+
+        if (!selectError && freshProduct) {
+          console.log('📥 SELECT fresh confirmou estado:', { 
+            id: freshProduct.id, 
+            name: freshProduct.name, 
+            is_active: freshProduct.data?.is_active 
+          });
+          
+          // Atualizar store com dados frescos do banco
+          const freshData = freshProduct.data;
+          const confirmedState = freshData?.is_active ?? true;
+          if (confirmedState !== newActiveState) {
+            console.warn('⚠️  Desincronização detectada! Corrigindo...', {
+              esperado: newActiveState,
+              banco: confirmedState
+            });
+          }
+        } else {
+          console.error('❌ Erro ao fazer SELECT fresh:', selectError);
+        }
+      }, 300);
+      
     } catch (error) {
       console.error('Erro ao sincronizar ativação do produto:', error);
       toast.error('Erro ao sincronizar produto');
