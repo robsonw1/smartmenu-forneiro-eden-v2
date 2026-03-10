@@ -225,9 +225,25 @@ export function DeliveryAddressDialog({
                 placeholder="Digitar ou selecionar um bairro"
                 value={neighborhoodInput}
                 onChange={(e) => {
-                  setNeighborhoodInput(e.target.value);
+                  const inputValue = e.target.value;
+                  setNeighborhoodInput(inputValue);
                   setShowNeighborhoodDropdown(true);
-                  setFormData({ ...formData, neighborhood: e.target.value });
+                  
+                  // 🔍 VALIDAÇÃO: Limpar formData.neighborhood se não corresponde a um bairro existente
+                  if (!inputValue.trim()) {
+                    setFormData({ ...formData, neighborhood: '' });
+                  } else {
+                    const matchingNeighborhood = activeNeighborhoods.find(
+                      (nb) => nb?.name?.toLowerCase() === inputValue.toLowerCase().trim()
+                    );
+                    if (!matchingNeighborhood) {
+                      // ❌ Não corresponde - manter vazio para forçar seleção explícita
+                      setFormData({ ...formData, neighborhood: '' });
+                    } else {
+                      // ✅ Corresponde - setar formData
+                      setFormData({ ...formData, neighborhood: matchingNeighborhood.name });
+                    }
+                  }
                 }}
                 onFocus={() => setShowNeighborhoodDropdown(true)}
                 disabled={isLoading || isCreatingNeighborhood}
