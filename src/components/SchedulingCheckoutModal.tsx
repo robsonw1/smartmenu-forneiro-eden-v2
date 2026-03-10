@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -53,7 +53,8 @@ import {
   XCircle,
   Star,
   Clock,
-  Calendar
+  Calendar,
+  Plus
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -140,6 +141,10 @@ export function SchedulingCheckoutModal() {
   const [tenantId, setTenantId] = useState<string>('');
   const [storeOpen, setStoreOpen] = useState<boolean>(false); // ⚠️ DEFAULT FALSE (mais seguro) até dados carregarem
   const [settingsLoaded, setSettingsLoaded] = useState<boolean>(false);
+  const [neighborhoodInput, setNeighborhoodInput] = useState<string>('');
+  const [showNeighborhoodDropdown, setShowNeighborhoodDropdown] = useState(false);
+  const [isCreatingNeighborhood, setIsCreatingNeighborhood] = useState(false);
+  const neighborhoodInitializedRef = useRef(false);
 
   const validateAndUseCoupon = useCouponManagementStore((s) => s.validateAndUseCoupon);
   const markCouponAsUsed = useCouponManagementStore((s) => s.markCouponAsUsed);
@@ -490,6 +495,20 @@ export function SchedulingCheckoutModal() {
     };
   }, [step, lastOrderId, subtotal, deliveryFee]);
 
+  // 🏘️ NEIGHBORHOOD: Sincronizar estado quando modal abre/fecha
+  useEffect(() => {
+    if (isSchedulingCheckoutOpen) {
+      if (!neighborhoodInitializedRef.current) {
+        if (selectedNeighborhood?.name) {
+          setNeighborhoodInput(selectedNeighborhood.name);
+        }
+        neighborhoodInitializedRef.current = true;
+      }
+    } else {
+      neighborhoodInitializedRef.current = false;
+    }
+  }, [isSchedulingCheckoutOpen, selectedNeighborhood]);
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -528,6 +547,47 @@ export function SchedulingCheckoutModal() {
     setAppliedCoupon('');
     setCouponDiscount(0);
     setCouponValidationMessage('');
+  };
+
+  const handleAddNewNeighborhood = async () => {
+    if (!neighborhoodInput.trim()) {
+      toast.error('Digite o nome do bairro');
+      return;
+    }
+
+    setIsCreatingNeighborhood(true);
+    try {
+      const DEFAULT_DELIVERY_FEE = 8.0; // Taxa padrão em reais
+      const newNeighborhoodId = `user-${neighborhoodInput.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+
+      // Salvar novo bairro no Supabase
+      const { error } = await (supabase as any)
+        .from('neighborhoods')
+        .insert([
+          {
+            id: newNeighborhoodId,
+            name: neighborhoodInput.trim(),
+            delivery_fee: DEFAULT_DELIVERY_FEE,
+            is_active: true,
+          },
+        ]);
+
+      if (error) {
+        console.error('❌ Erro ao criar bairro:', error);
+        toast.error('Erro ao adicionar bairro');
+        return;
+      }
+
+      // Selecionar o bairro criado
+      setNeighborhoodInput(neighborhoodInput.trim());
+      setShowNeighborhoodDropdown(false);
+      toast.success(`✅ Bairro "${neighborhoodInput}" adicionado com sucesso!`);
+    } catch (error) {
+      console.error('Erro:', error);
+      toast.error('Erro ao adicionar bairro');
+    } finally {
+      setIsCreatingNeighborhood(false);
+    }
   };
 
   const formatCpf = (value: string) => {
@@ -1487,7 +1547,7 @@ export function SchedulingCheckoutModal() {
   return (
     <>
       <Dialog open={isSchedulingCheckoutOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] p-0 overflow-hidden">
+      <DialogContent className="max-w-2xl max-h-[90vh] p-0 overflow-hidden" onClick={() => setShowNeighborhoodDropdown(false)}>
         <DialogDescription className="sr-only">
           Formulário de checkout para realizar pedido
         </DialogDescription>
@@ -1687,24 +1747,81 @@ export function SchedulingCheckoutModal() {
                     <div className="grid grid-cols-1 gap-4">
                       <div>
                         <Label htmlFor="neighborhood">Bairro *</Label>
-                        <Select 
-                          value={selectedNeighborhood?.id || ''} 
-                          onValueChange={(id) => {
-                            const nb = activeNeighborhoods.find(n => n.id === id);
-                            setSelectedNeighborhood(nb || null);
-                          }}
-                        >
-                          <SelectTrigger className="mt-1">
-                            <SelectValue placeholder="Selecione" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {activeNeighborhoods.map(nb => (
-                              <SelectItem key={nb.id} value={nb.id}>
-                                {nb.name} - {formatPrice(nb.deliveryFee)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {/* Bairro com Autocomplete inteligente */}
+                        <div className="relative mt-1">
+                          <Input
+                            id="neighborhood"
+                            placeholder="Digitar ou selecionar um bairro"
+                            value={neighborhoodInput}
+                            onChange={(e) => {
+                              setNeighborhoodInput(e.target.value);
+                              setShowNeighborhoodDropdown(true);
+                            }}
+                            onFocus={() => setShowNeighborhoodDropdown(true)}
+                            disabled={isProcessing || isCreatingNeighborhood}
+                            autoComplete="off"
+                            className="pr-10"
+                          />
+
+                          {/* Dropdown de bairros com autocomplete */}
+                          {showNeighborhoodDropdown && neighborhoodInput && (
+                            <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md shadow-md max-h-48 overflow-y-auto">
+                              {/* Bairros que combinam com a busca */}
+                              {activeNeighborhoods.filter((nb) =>
+                                nb?.name?.toLowerCase().includes(neighborhoodInput.toLowerCase())
+                              ).length > 0 && (
+                                <>
+                                  {activeNeighborhoods
+                                    .filter((nb) =>
+                                      nb?.name?.toLowerCase().includes(neighborhoodInput.toLowerCase())
+                                    )
+                                    .map((nb) =>
+                                      !nb?.id ? null : (
+                                        <button
+                                          key={nb.id}
+                                          type="button"
+                                          onClick={() => {
+                                            setNeighborhoodInput(nb.name);
+                                            setSelectedNeighborhood(nb);
+                                            setShowNeighborhoodDropdown(false);
+                                          }}
+                                          className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 flex justify-between items-center border-b last:border-b-0"
+                                        >
+                                          <span className="text-sm">{nb.name}</span>
+                                          <span className="text-xs text-muted-foreground">{formatPrice(nb.deliveryFee)}</span>
+                                        </button>
+                                      )
+                                    )}
+                                </>
+                              )}
+
+                              {/* Opção para criar novo bairro se não existir */}
+                              {!activeNeighborhoods.some(
+                                (nb) => nb?.name?.toLowerCase() === neighborhoodInput.toLowerCase()
+                              ) && neighborhoodInput.trim() && (
+                                <button
+                                  type="button"
+                                  onClick={handleAddNewNeighborhood}
+                                  disabled={isCreatingNeighborhood}
+                                  className="w-full text-left px-4 py-3 hover:bg-green-50 dark:hover:bg-green-950 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center gap-2 text-primary text-sm font-medium"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                  <span>Adicionar "{neighborhoodInput}" como novo bairro</span>
+                                  {isCreatingNeighborhood && <span className="ml-auto text-xs">Criando...</span>}
+                                </button>
+                              )}
+
+                              {/* Mensagem quando nenhum bairro encontrado */}
+                              {activeNeighborhoods.filter((nb) =>
+                                nb?.name?.toLowerCase().includes(neighborhoodInput.toLowerCase())
+                              ).length === 0 && !neighborhoodInput.trim() && (
+                                <div className="px-4 py-2 text-sm text-muted-foreground">
+                                  Digite para buscar bairros
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
