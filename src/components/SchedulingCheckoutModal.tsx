@@ -643,7 +643,7 @@ export function SchedulingCheckoutModal() {
         if (deliveryType === 'pickup') return true;
         // Validate address fields only for delivery
         if (!address.street || !address.number || !selectedNeighborhood) {
-          toast.error('Por favor, preencha o endereço completo');
+          toast.error('Por favor, preencha o endereço completo ou selecione/adicione seu bairro');
           return false;
         }
         return true;
@@ -2526,4 +2526,3 @@ export function SchedulingCheckoutModal() {
     </>
   );
 }
-
