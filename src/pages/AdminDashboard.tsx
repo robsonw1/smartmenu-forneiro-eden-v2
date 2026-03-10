@@ -406,12 +406,12 @@ const AdminDashboard = () => {
     try {
       const newActiveState = !product.isActive;
       console.log(`🔄 Toggling produto ${productId}: isActive ${product.isActive} -> ${newActiveState}`);
-      const dataJson = {
+      
+      // ✅ Construir dataJson mantendo EXATAMENTE a mesma estrutura de preços do produto original
+      // Se tem price, não enviar price_small/large (e vice-versa)
+      const dataJson: any = {
         description: product.description,
         category: product.category,
-        price: product.price || undefined,
-        price_small: product.priceSmall || null,
-        price_large: product.priceLarge || null,
         ingredients: product.ingredients || [],
         image: product.image || undefined,
         is_active: newActiveState,
@@ -420,6 +420,17 @@ const AdminDashboard = () => {
         is_customizable: product.isCustomizable || false,
         is_new: product.isNew || false,
       };
+
+      // Preservar preços exatamente como estão no produto original
+      if (product.price != null) {
+        dataJson.price = product.price;
+      }
+      if (product.priceSmall != null) {
+        dataJson.price_small = product.priceSmall;
+      }
+      if (product.priceLarge != null) {
+        dataJson.price_large = product.priceLarge;
+      }
 
       console.log('📤 Enviando UPDATE ao Supabase:', { productId, is_active: newActiveState, dataJson });
 
@@ -942,13 +953,12 @@ const AdminDashboard = () => {
           // 🔄 CONFIRMAÇÃO: SELECT para garantir que foi deletado
           setTimeout(async () => {
             try {
-              const { data: deletedProduct, error: selectError } = await (supabase as any)
+              const { data: deletedList, error: selectError } = await (supabase as any)
                 .from('products')
                 .select('*')
-                .eq('id', deleteDialog.id)
-                .single();
+                .eq('id', deleteDialog.id);
               
-              if (!selectError && deletedProduct) {
+              if (!selectError && deletedList && deletedList.length > 0) {
                 // Ainda existe - reversão
                 console.error('⚠️  Produto ainda existe no banco! Revertendo...');
                 removeProduct(deleteDialog.id); // Remove do store novamente
@@ -956,8 +966,7 @@ const AdminDashboard = () => {
                 console.log('✅ Confirmado - Produto foi deletado com sucesso do banco');
               }
             } catch (err) {
-              // Erro 406 significa que nenhum resultado foi encontrado = produto foi deletado ✅
-              console.log('✅ Confirmado - Produto foi deletado (erro 406 = sucesso)');
+              console.log('✅ Confirmado - Produto foi deletado (erro = sucesso)');
             }
           }, 300);
 
@@ -991,16 +1000,15 @@ const AdminDashboard = () => {
 
           console.log('✅ DELETE concluído no Supabase');
           
-          // 🔄 CONFIRMAÇÃO: SELECT para garantir que foi deletado
+          // 🔄 CONFIRMAÇÃO: SELECT sem .single() para evitar erro 406
           setTimeout(async () => {
             try {
-              const { data: deletedNeighborhood, error: selectError } = await (supabase as any)
+              const { data: deletedList, error: selectError } = await (supabase as any)
                 .from('neighborhoods')
                 .select('*')
-                .eq('id', deleteDialog.id)
-                .single();
+                .eq('id', deleteDialog.id);
               
-              if (!selectError && deletedNeighborhood) {
+              if (!selectError && deletedList && deletedList.length > 0) {
                 // Ainda existe - reversão
                 console.error('⚠️  Bairro ainda existe no banco! Revertendo...');
                 removeNeighborhood(deleteDialog.id); // Remove do store novamente
