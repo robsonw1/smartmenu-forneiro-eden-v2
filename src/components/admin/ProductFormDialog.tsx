@@ -100,6 +100,17 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
     const trimmed = name.trim();
     if (!trimmed) return;
 
+    // Determinar preços baseado na categoria
+    const finalPrice = !isPizzaCategory ? toNumberOrUndefined(price) : undefined;
+    const finalPriceSmall = isPizzaCategory ? toNumberOrUndefined(priceSmall) : undefined;
+    const finalPriceLarge = isPizzaCategory ? toNumberOrUndefined(priceLarge) : undefined;
+
+    // Validar que ao menos um preço foi preenchido
+    if (!finalPrice && !finalPriceSmall && !finalPriceLarge) {
+      toast.error('Preencha o preço do produto');
+      return;
+    }
+
     const nextProduct: Product = {
       ...(product ?? {
         id: `custom-${Date.now()}`,
@@ -109,10 +120,10 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
       name: trimmed,
       description: description.trim(),
       category,
-      price: !isPizzaCategory ? toNumberOrUndefined(price) : undefined,
+      price: finalPrice,
       isPopular,
-      priceSmall: isPizzaCategory ? toNumberOrUndefined(priceSmall) : undefined,
-      priceLarge: isPizzaCategory ? toNumberOrUndefined(priceLarge) : undefined,
+      priceSmall: finalPriceSmall,
+      priceLarge: finalPriceLarge,
     };
 
     // Atualizar estado local (Zustand)
@@ -120,13 +131,11 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
 
     // Salvar no Supabase com formato JSONB correto
     try {
-      const dataJson = {
+      // ✅ Construir dataJson preservando a estrutura de preços exatamente como em handleToggleProductActive
+      const dataJson: any = {
         description: nextProduct.description,
         category: nextProduct.category,
-        price: nextProduct.price || undefined,
-        price_small: nextProduct.priceSmall || null,
-        price_large: nextProduct.priceLarge || null,
-        ingredients:isPopular,
+        ingredients: nextProduct.ingredients || [],
         image: nextProduct.image || undefined,
         is_active: nextProduct.isActive !== false,
         is_popular: nextProduct.isPopular || false,
@@ -134,6 +143,17 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
         is_customizable: nextProduct.isCustomizable || false,
         is_new: nextProduct.isNew || false,
       };
+
+      // Adicionar apenas os preços que têm valor (nunca undefined ou null)
+      if (nextProduct.price != null) {
+        dataJson.price = nextProduct.price;
+      }
+      if (nextProduct.priceSmall != null) {
+        dataJson.price_small = nextProduct.priceSmall;
+      }
+      if (nextProduct.priceLarge != null) {
+        dataJson.price_large = nextProduct.priceLarge;
+      }
 
       const { error } = await (supabase as any)
         .from('products')
