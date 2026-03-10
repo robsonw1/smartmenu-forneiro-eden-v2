@@ -128,5 +128,3 @@ function ProductCard({ product, index = 0 }: ProductCardProps) {
   );
 }
 
-export { ProductCard };
-
