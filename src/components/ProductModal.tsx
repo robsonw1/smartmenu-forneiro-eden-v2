@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -29,28 +29,22 @@ export function ProductModal() {
   const { selectedProduct, isProductModalOpen, setProductModalOpen, setSelectedProduct, setCartOpen } = useUIStore();
   const { addItem } = useCartStore();
   
-  // ✅ Corrigido: Selectors que se inscrevem aos dados reais (não às funções)
-  // Zustand vai re-renderizar quando productsById mudar de verdade
-  const allProducts = useCatalogStore((s) => Object.values(s.productsById));
-  const allPizzas = useMemo(
-    () => allProducts.filter((p) => ['promocionais', 'tradicionais', 'premium', 'especiais', 'doces'].includes(p.category as any)),
-    [allProducts]
+  // ✅ Corrigido: Selectors diretos que Zustand memoiza automaticamente
+  // Cada selector retorna só o que precisa, Zustand compara referências
+  const allPizzas = useCatalogStore((s) => 
+    Object.values(s.productsById).filter((p) => ['promocionais', 'tradicionais', 'premium', 'especiais', 'doces'].includes(p.category as any))
   );
-  const promotionalPizzas = useMemo(
-    () => allProducts.filter((p) => p.category === 'promocionais'),
-    [allProducts]
+  const promotionalPizzas = useCatalogStore((s) =>
+    Object.values(s.productsById).filter((p) => p.category === 'promocionais')
   );
-  const availableBordas = useMemo(
-    () => allProducts.filter((p) => p.category === 'bordas' && p.isActive),
-    [allProducts]
+  const availableBordas = useCatalogStore((s) =>
+    Object.values(s.productsById).filter((p) => p.category === 'bordas' && p.isActive)
   );
-  const availableAdicionais = useMemo(
-    () => allProducts.filter((p) => p.category === 'adicionais' && p.isActive),
-    [allProducts]
+  const availableAdicionais = useCatalogStore((s) =>
+    Object.values(s.productsById).filter((p) => p.category === 'adicionais' && p.isActive)
   );
-  const availableDrinks = useMemo(
-    () => allProducts.filter((p) => p.category === 'bebidas' && p.isActive),
-    [allProducts]
+  const availableDrinks = useCatalogStore((s) =>
+    Object.values(s.productsById).filter((p) => p.category === 'bebidas' && p.isActive)
   );
   
   const [size, setSize] = useState<'broto' | 'grande'>('grande');
