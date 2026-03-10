@@ -1763,8 +1763,23 @@ export function SchedulingCheckoutModal() {
                             placeholder="Digitar ou selecionar um bairro"
                             value={neighborhoodInput}
                             onChange={(e) => {
-                              setNeighborhoodInput(e.target.value);
+                              const inputValue = e.target.value;
+                              setNeighborhoodInput(inputValue);
                               setShowNeighborhoodDropdown(true);
+                              
+                              // 🔍 VALIDAÇÃO: Se o input NÃO corresponde a um bairro existente, limpar selectedNeighborhood
+                              if (!inputValue.trim()) {
+                                setSelectedNeighborhood(null);
+                              } else {
+                                const matchingNeighborhood = activeNeighborhoods.find(
+                                  (nb) => nb?.name?.toLowerCase() === inputValue.toLowerCase().trim()
+                                );
+                                if (!matchingNeighborhood) {
+                                  setSelectedNeighborhood(null); // ❌ Sem match exato = sem seleção
+                                } else {
+                                  setSelectedNeighborhood(matchingNeighborhood); // ✅ Match exato = seleciona
+                                }
+                              }
                             }}
                             onFocus={() => setShowNeighborhoodDropdown(true)}
                             disabled={isProcessing || isCreatingNeighborhood}
