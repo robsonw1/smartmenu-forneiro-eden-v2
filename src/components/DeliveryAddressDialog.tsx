@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useLoyaltyStore } from '@/store/useLoyaltyStore';
 import { useNeighborhoodsStore } from '@/store/useNeighborhoodsStore';
 import { toast } from 'sonner';
-import { MapPin } from 'lucide-react';
+import { MapPin, Plus } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DeliveryAddressDialogProps {
   isOpen: boolean;
@@ -38,6 +39,9 @@ export function DeliveryAddressDialog({
     zipCode: currentCustomer?.zipCode || '',
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [neighborhoodInput, setNeighborhoodInput] = useState<string>(currentCustomer?.neighborhood || '');
+  const [showNeighborhoodDropdown, setShowNeighborhoodDropdown] = useState(false);
+  const [isCreatingNeighborhood, setIsCreatingNeighborhood] = useState(false);
 
   // Sincronizar formData quando currentCustomer mudar
   useEffect(() => {
@@ -50,18 +54,77 @@ export function DeliveryAddressDialog({
         city: currentCustomer.city || '',
         zipCode: currentCustomer.zipCode || '',
       });
+      setNeighborhoodInput(currentCustomer.neighborhood || '');
     }
   }, [isOpen, currentCustomer]);
 
+  // Filtrar bairros baseado no input do usuário
+  const filteredNeighborhoods = activeNeighborhoods.filter((nb) =>
+    nb?.name?.toLowerCase().includes(neighborhoodInput.toLowerCase())
+  );
+
+  // Verificar se o bairro digitado já existe
+  const neighborhoodExists = activeNeighborhoods.some(
+    (nb) => nb?.name?.toLowerCase() === neighborhoodInput.toLowerCase()
+  );
+
+  // Função para criar novo bairro com taxa padrão
+  const handleAddNewNeighborhood = async () => {
+    if (!neighborhoodInput.trim()) {
+      toast.error('Digite o nome do bairro');
+      return;
+    }
+
+    setIsCreatingNeighborhood(true);
+    try {
+      const DEFAULT_DELIVERY_FEE = 8.0; // Taxa padrão em reais
+      const newNeighborhoodId = `user-${neighborhoodInput.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+
+      // Salvar novo bairro no Supabase
+      const { error } = await (supabase as any)
+        .from('neighborhoods')
+        .insert([
+          {
+            id: newNeighborhoodId,
+            name: neighborhoodInput.trim(),
+            delivery_fee: DEFAULT_DELIVERY_FEE,
+            is_active: true,
+          },
+        ]);
+
+      if (error) {
+        console.error('❌ Erro ao criar bairro:', error);
+        toast.error('Erro ao adicionar bairro');
+        return;
+      }
+
+      // Selecionar o bairro criado
+      setFormData({ ...formData, neighborhood: neighborhoodInput.trim() });
+      setShowNeighborhoodDropdown(false);
+      toast.success(`✅ Bairro "${neighborhoodInput}" adicionado com sucesso!`);
+    } catch (error) {
+      console.error('Erro:', error);
+      toast.error('Erro ao adicionar bairro');
+    } finally {
+      setIsCreatingNeighborhood(false);
+    }
+  };
+
   const handleSave = async () => {
-    if (!formData.street.trim() || !formData.number.trim() || !formData.neighborhood.trim()) {
+    if (!formData.street.trim() || !formData.number.trim() || !neighborhoodInput.trim()) {
       toast.error('Preencha rua, número e bairro obrigatoriamente');
       return;
     }
 
     setIsLoading(true);
     try {
-      const success = await saveDefaultAddress(formData);
+      // Usar o valor digitado como bairro (pode ser novo ou existente)
+      const dataToSave = {
+        ...formData,
+        neighborhood: neighborhoodInput.trim(),
+      };
+
+      const success = await saveDefaultAddress(dataToSave);
       if (success) {
         toast.success('✅ Endereço salvo com sucesso!');
         onClose();
@@ -85,7 +148,7 @@ export function DeliveryAddressDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" onClick={() => setShowNeighborhoodDropdown(false)}>
         <DialogHeader>
           <div className="flex items-center gap-2 mb-2">
             <MapPin className="w-5 h-5 text-primary" />
@@ -143,33 +206,74 @@ export function DeliveryAddressDialog({
             </div>
           </div>
 
-          {/* Bairro como SELECT com valores de taxa em tempo real */}
-          <div className="space-y-2">
+          {/* Bairro com Autocomplete inteligente */}
+          <div className="space-y-2 relative">
             <Label htmlFor="neighborhood">Bairro *</Label>
-            <Select 
-              value={formData.neighborhood}
-              onValueChange={(value) => setFormData({ ...formData, neighborhood: value })}
-              disabled={isLoading}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Selecione um bairro" />
-              </SelectTrigger>
-              <SelectContent>
-                {activeNeighborhoods && activeNeighborhoods.length > 0 ? (
-                  activeNeighborhoods.map((nb) => 
-                    !nb?.id ? null : (
-                      <SelectItem key={nb.id} value={nb.name}>
-                        {nb.name} - {formatPrice(nb.deliveryFee)}
-                      </SelectItem>
-                    )
-                  )
-                ) : (
-                  <SelectItem value="" disabled>
-                    Nenhum bairro disponível
-                  </SelectItem>
-                )}
-              </SelectContent>
-            </Select>
+            <div className="relative">
+              <Input
+                id="neighborhood"
+                placeholder="Digitar ou selecionar um bairro"
+                value={neighborhoodInput}
+                onChange={(e) => {
+                  setNeighborhoodInput(e.target.value);
+                  setShowNeighborhoodDropdown(true);
+                  setFormData({ ...formData, neighborhood: e.target.value });
+                }}
+                onFocus={() => setShowNeighborhoodDropdown(true)}
+                disabled={isLoading || isCreatingNeighborhood}
+                autoComplete="off"
+                className="pr-10"
+              />
+
+              {/* Dropdown de bairros com autocomplete */}
+              {showNeighborhoodDropdown && neighborhoodInput && (
+                <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md shadow-md max-h-48 overflow-y-auto">
+                  {/* Bairros que combinam com a busca */}
+                  {filteredNeighborhoods.length > 0 && (
+                    <>
+                      {filteredNeighborhoods.map((nb) =>
+                        !nb?.id ? null : (
+                          <button
+                            key={nb.id}
+                            type="button"
+                            onClick={() => {
+                              setNeighborhoodInput(nb.name);
+                              setFormData({ ...formData, neighborhood: nb.name });
+                              setShowNeighborhoodDropdown(false);
+                            }}
+                            className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 flex justify-between items-center border-b last:border-b-0"
+                          >
+                            <span className="text-sm">{nb.name}</span>
+                            <span className="text-xs text-muted-foreground">{formatPrice(nb.deliveryFee)}</span>
+                          </button>
+                        )
+                      )}
+                    </>
+                  )}
+
+                  {/* Opção para criar novo bairro se não existir */}
+                  {!neighborhoodExists && neighborhoodInput.trim() && (
+                    <button
+                      type="button"
+                      onClick={handleAddNewNeighborhood}
+                      disabled={isCreatingNeighborhood}
+                      className="w-full text-left px-4 py-3 hover:bg-green-50 dark:hover:bg-green-950 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center gap-2 text-primary text-sm font-medium"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Adicionar "{neighborhoodInput}" como novo bairro</span>
+                      {isCreatingNeighborhood && <span className="ml-auto text-xs">Criando...</span>}
+                    </button>
+                  )}
+
+                  {/* Mensagem quando nenhum bairro encontrado */}
+                  {filteredNeighborhoods.length === 0 && !neighborhoodInput.trim() && (
+                    <div className="px-4 py-2 text-sm text-muted-foreground">
+                      Digite para buscar bairros
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">
