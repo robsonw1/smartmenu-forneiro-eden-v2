@@ -131,10 +131,14 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
 
     // Salvar no Supabase com formato JSONB correto
     try {
-      // ✅ Construir dataJson preservando a estrutura de preços exatamente como em handleToggleProductActive
+      // ✅ SEMPRE enviar TODOS os campos de preço (mesmo que null)
+      // Isso garante que Supabase sobrescreve qualquer valor antigo ou inválido
       const dataJson: any = {
         description: nextProduct.description,
         category: nextProduct.category,
+        price: nextProduct.price ?? null,
+        price_small: nextProduct.priceSmall ?? null,
+        price_large: nextProduct.priceLarge ?? null,
         ingredients: nextProduct.ingredients || [],
         image: nextProduct.image || undefined,
         is_active: nextProduct.isActive !== false,
@@ -143,17 +147,6 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
         is_customizable: nextProduct.isCustomizable || false,
         is_new: nextProduct.isNew || false,
       };
-
-      // Adicionar apenas os preços que têm valor (nunca undefined ou null)
-      if (nextProduct.price != null) {
-        dataJson.price = nextProduct.price;
-      }
-      if (nextProduct.priceSmall != null) {
-        dataJson.price_small = nextProduct.priceSmall;
-      }
-      if (nextProduct.priceLarge != null) {
-        dataJson.price_large = nextProduct.priceLarge;
-      }
 
       const { error } = await (supabase as any)
         .from('products')
