@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUIStore, useCartStore } from '@/store/useStore';
-import { bordas, adicionais, availableIngredients, meatIngredients, paidExtraIngredients, Product, CartItem } from '@/data/products';
+import { availableIngredients, meatIngredients, paidExtraIngredients, Product, CartItem } from '@/data/products';
 import { useCatalogStore } from '@/store/useCatalogStore';
 import { GlassWater, ChefHat } from 'lucide-react';
 import { Plus, Minus, Leaf, Star, Sparkles, ShoppingCart } from 'lucide-react';
@@ -28,9 +28,47 @@ const MAX_FREE_INGREDIENTS = 6;
 export function ProductModal() {
   const { selectedProduct, isProductModalOpen, setProductModalOpen, setSelectedProduct, setCartOpen } = useUIStore();
   const { addItem } = useCartStore();
-  const getAllPizzasFromCatalog = useCatalogStore((s) => s.getAllPizzas);
-  const getPromotionalFromCatalog = useCatalogStore((s) => s.getPromotionalPizzas);
-  const getBebidasFromCatalog = useCatalogStore((s) => s.getByCategory);
+  
+  // ✅ Selector direto (padrão do ProductCatalog)
+  // Zustand compara productsById por referência e dispara re-render se mudar
+  const productsById = useCatalogStore((s) => s.productsById);
+  
+  // ✅ useMemo que depende de productsById (não de funções)
+  // Isso garante que dados filtrados sejam recalculados quando productsById muda
+  const allPizzas = useMemo(
+    () => Object.values(productsById)
+      .filter((p) => ['promocionais', 'tradicionais', 'premium', 'especiais', 'doces'].includes(p.category as any))
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+    [productsById]
+  );
+  
+  const promotionalPizzas = useMemo(
+    () => Object.values(productsById)
+      .filter((p) => p.category === 'promocionais')
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+    [productsById]
+  );
+  
+  const availableBordas = useMemo(
+    () => Object.values(productsById)
+      .filter((p) => p.category === 'bordas' && p.isActive)
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+    [productsById]
+  );
+  
+  const availableAdicionais = useMemo(
+    () => Object.values(productsById)
+      .filter((p) => p.category === 'adicionais' && p.isActive)
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+    [productsById]
+  );
+  
+  const availableDrinks = useMemo(
+    () => Object.values(productsById)
+      .filter((p) => p.category === 'bebidas' && p.isActive)
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+    [productsById]
+  );
   
   const [size, setSize] = useState<'broto' | 'grande'>('grande');
   const [isHalfHalf, setIsHalfHalf] = useState(false);
@@ -47,13 +85,6 @@ export function ProductModal() {
   const [isPizza2HalfHalf, setIsPizza2HalfHalf] = useState(false);
   const [customIngredients, setCustomIngredients] = useState<string[]>([]);
   const [paidIngredients, setPaidIngredients] = useState<string[]>([]);
-
-  const allPizzas = useMemo(() => getAllPizzasFromCatalog(), [getAllPizzasFromCatalog]);
-  const promotionalPizzas = useMemo(() => getPromotionalFromCatalog(), [getPromotionalFromCatalog]);
-  const availableDrinks = useMemo(
-    () => getBebidasFromCatalog('bebidas').filter((b) => b.isActive),
-    [getBebidasFromCatalog]
-  );
   
   const isPizza = selectedProduct && 
     ['promocionais', 'tradicionais', 'premium', 'especiais', 'doces'].includes(selectedProduct.category);
@@ -112,19 +143,19 @@ export function ProductModal() {
 
     // Border
     if (isPizza && selectedBorder && selectedBorder !== 'sem-borda') {
-      const border = bordas.find(b => b.id === selectedBorder);
+      const border = availableBordas.find(b => b.id === selectedBorder);
       if (border?.price) total += border.price;
     }
 
     // Extras
     selectedExtras.forEach(extraId => {
-      const extra = adicionais.find(a => a.id === extraId);
+      const extra = availableAdicionais.find(a => a.id === extraId);
       if (extra?.price) total += extra.price;
     });
 
     // Paid custom ingredients - busca preço do adicional correspondente
     paidIngredients.forEach(ingredient => {
-      const paidAdditional = adicionais.find(a => a.name === ingredient);
+      const paidAdditional = availableAdicionais.find(a => a.name === ingredient);
       if (paidAdditional?.price) {
         total += paidAdditional.price;
       }
@@ -206,11 +237,11 @@ export function ProductModal() {
       : undefined;
     
     const border = isPizza && selectedBorder !== 'sem-borda'
-      ? bordas.find(b => b.id === selectedBorder)
+      ? availableBordas.find(b => b.id === selectedBorder)
       : undefined;
 
     const extras = selectedExtras
-      .map(id => adicionais.find(a => a.id === id))
+      .map(id => availableAdicionais.find(a => a.id === id))
       .filter(Boolean) as Product[];
 
     const selectedDrink = selectedDrinkId && selectedDrinkId !== 'sem-bebida'
@@ -503,7 +534,7 @@ export function ProductModal() {
                         {paidIngredients.length > 0 && (
                           <Badge variant="outline" className="bg-amber-50">
                             +{formatPrice(paidIngredients.reduce((total, ing) => {
-                              const paidAdditional = adicionais.find(a => a.name === ing);
+                              const paidAdditional = availableAdicionais.find(a => a.name === ing);
                               return total + (paidAdditional?.price || 0);
                             }, 0))}
                           </Badge>
@@ -516,7 +547,7 @@ export function ProductModal() {
                         {paidExtraIngredients.map(ingredient => {
                           const isSelected = paidIngredients.includes(ingredient);
                           const isAlreadyFree = customIngredients.includes(ingredient);
-                          const paidAdditional = adicionais.find(a => a.name === ingredient);
+                          const paidAdditional = availableAdicionais.find(a => a.name === ingredient);
                           const price = paidAdditional?.price || 0;
                           
                           return (
@@ -558,7 +589,7 @@ export function ProductModal() {
                           <p className="text-sm font-medium mb-2">Seus ingredientes adicionais:</p>
                           <div className="flex flex-wrap gap-1">
                             {paidIngredients.map(ing => {
-                              const paidAdditional = adicionais.find(a => a.name === ing);
+                              const paidAdditional = availableAdicionais.find(a => a.name === ing);
                               const price = paidAdditional?.price || 0;
                               return (
                                 <Badge 
@@ -635,7 +666,7 @@ export function ProductModal() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="sem-borda">Sem borda recheada</SelectItem>
-                        {bordas.filter(b => b.isActive).map(border => (
+                        {availableBordas.map(border => (
                           <SelectItem key={border.id} value={border.id}>
                             {border.name} (+{formatPrice(border.price!)})
                           </SelectItem>
@@ -655,7 +686,7 @@ export function ProductModal() {
                       Adicionais <span className="text-muted-foreground font-normal">(opcional)</span>
                     </Label>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
-                      {adicionais.filter(a => a.isActive).map(adicional => (
+                      {availableAdicionais.map(adicional => (
                         <div key={adicional.id} className="flex items-center space-x-2">
                           <Checkbox
                             id={adicional.id}
