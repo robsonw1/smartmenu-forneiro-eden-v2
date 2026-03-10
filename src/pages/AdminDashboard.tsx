@@ -407,11 +407,14 @@ const AdminDashboard = () => {
       const newActiveState = !product.isActive;
       console.log(`🔄 Toggling produto ${productId}: isActive ${product.isActive} -> ${newActiveState}`);
       
-      // ✅ Construir dataJson mantendo EXATAMENTE a mesma estrutura de preços do produto original
-      // Se tem price, não enviar price_small/large (e vice-versa)
+      // ✅ SEMPRE enviar TODOS os campos de preço (mesmo que null)
+      // Isso garante que Supabase sobrescreve qualquer valor antigo ou inválido
       const dataJson: any = {
         description: product.description,
         category: product.category,
+        price: product.price ?? null,
+        price_small: product.priceSmall ?? null,
+        price_large: product.priceLarge ?? null,
         ingredients: product.ingredients || [],
         image: product.image || undefined,
         is_active: newActiveState,
@@ -420,17 +423,6 @@ const AdminDashboard = () => {
         is_customizable: product.isCustomizable || false,
         is_new: product.isNew || false,
       };
-
-      // Preservar preços exatamente como estão no produto original
-      if (product.price != null) {
-        dataJson.price = product.price;
-      }
-      if (product.priceSmall != null) {
-        dataJson.price_small = product.priceSmall;
-      }
-      if (product.priceLarge != null) {
-        dataJson.price_large = product.priceLarge;
-      }
 
       console.log('📤 Enviando UPDATE ao Supabase:', { productId, is_active: newActiveState, dataJson });
 
