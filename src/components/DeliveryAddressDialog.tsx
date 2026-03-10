@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -43,20 +43,30 @@ export function DeliveryAddressDialog({
   const [showNeighborhoodDropdown, setShowNeighborhoodDropdown] = useState(false);
   const [isCreatingNeighborhood, setIsCreatingNeighborhood] = useState(false);
 
-  // Sincronizar formData apenas quando dialog abre/fecha (não resetar ao digitar)
+  // Rastrear se já carregou os dados na abertura
+  const hasInitializedRef = useRef(false);
+
+  // Sincronizar formData APENAS UMA VEZ quando abre o dialog
   useEffect(() => {
     if (isOpen) {
-      setFormData({
-        street: currentCustomer?.street || '',
-        number: currentCustomer?.number || '',
-        complement: currentCustomer?.complement || '',
-        neighborhood: currentCustomer?.neighborhood || '',
-        city: currentCustomer?.city || '',
-        zipCode: currentCustomer?.zipCode || '',
-      });
-      setNeighborhoodInput(currentCustomer?.neighborhood || '');
+      // Carregar dados apenas na PRIMEIRA abertura
+      if (!hasInitializedRef.current) {
+        setFormData({
+          street: currentCustomer?.street || '',
+          number: currentCustomer?.number || '',
+          complement: currentCustomer?.complement || '',
+          neighborhood: currentCustomer?.neighborhood || '',
+          city: currentCustomer?.city || '',
+          zipCode: currentCustomer?.zipCode || '',
+        });
+        setNeighborhoodInput(currentCustomer?.neighborhood || '');
+        hasInitializedRef.current = true;
+      }
+    } else {
+      // Reset o flag quando fecha para que carregue novamente na proxima abertura
+      hasInitializedRef.current = false;
     }
-  }, [isOpen]); // Apenas quando abre/fecha, não em currentCustomer
+  }, [isOpen]); // Seguro - isOpen é o único trigger
 
   // Filtrar bairros baseado no input do usuário
   const filteredNeighborhoods = activeNeighborhoods.filter((nb) =>
