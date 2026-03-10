@@ -10,7 +10,7 @@ interface ProductCardProps {
   index?: number;
 }
 
-function ProductCard({ product, index = 0 }: ProductCardProps) {
+export function ProductCard({ product, index = 0 }: ProductCardProps) {
   const { setSelectedProduct, setProductModalOpen } = useUIStore();
 
   const isUnavailable = !product.isActive;
