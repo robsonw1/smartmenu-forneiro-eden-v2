@@ -43,20 +43,20 @@ export function DeliveryAddressDialog({
   const [showNeighborhoodDropdown, setShowNeighborhoodDropdown] = useState(false);
   const [isCreatingNeighborhood, setIsCreatingNeighborhood] = useState(false);
 
-  // Sincronizar formData quando currentCustomer mudar
+  // Sincronizar formData apenas quando dialog abre/fecha (não resetar ao digitar)
   useEffect(() => {
-    if (isOpen && currentCustomer) {
+    if (isOpen) {
       setFormData({
-        street: currentCustomer.street || '',
-        number: currentCustomer.number || '',
-        complement: currentCustomer.complement || '',
-        neighborhood: currentCustomer.neighborhood || '',
-        city: currentCustomer.city || '',
-        zipCode: currentCustomer.zipCode || '',
+        street: currentCustomer?.street || '',
+        number: currentCustomer?.number || '',
+        complement: currentCustomer?.complement || '',
+        neighborhood: currentCustomer?.neighborhood || '',
+        city: currentCustomer?.city || '',
+        zipCode: currentCustomer?.zipCode || '',
       });
-      setNeighborhoodInput(currentCustomer.neighborhood || '');
+      setNeighborhoodInput(currentCustomer?.neighborhood || '');
     }
-  }, [isOpen, currentCustomer]);
+  }, [isOpen]); // Apenas quando abre/fecha, não em currentCustomer
 
   // Filtrar bairros baseado no input do usuário
   const filteredNeighborhoods = activeNeighborhoods.filter((nb) =>
