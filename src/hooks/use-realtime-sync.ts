@@ -39,8 +39,9 @@ const parseProductFromSupabase = (supabaseData: any): Product => {
     ingredients: data.ingredients || [],
     category: data.category || 'combos',
     price: data.price ?? undefined,
-    priceSmall: data.priceSmall ?? undefined,
-    priceLarge: data.priceLarge ?? undefined,
+    // ✅ Suportar ambos os formatos: camelCase (priceSmall) e snake_case (price_small)
+    priceSmall: data.priceSmall ?? data.price_small ?? undefined,
+    priceLarge: data.priceLarge ?? data.price_large ?? undefined,
     image: data.image,
     isPopular: data.is_popular ?? false,
     isNew: data.is_new ?? false,
