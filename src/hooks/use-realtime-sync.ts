@@ -136,9 +136,21 @@ export const useRealtimeSync = () => {
         if (neighborhoods && isMounted) {
           const neighborhoodsStore = useNeighborhoodsStore.getState();
           
+          // ✅ UPSERT: Adicionar/atualizar bairros existentes
+          const currentNeighborhoodIds = new Set<string>();
           for (const neighborhood of neighborhoods) {
             const parsed = parseNeighborhoodFromSupabase(neighborhood);
             neighborhoodsStore.upsertNeighborhood(parsed);
+            currentNeighborhoodIds.add(neighborhood.id);
+          }
+          
+          // ✅ DELETAR: Remover bairros que foram deletados no banco
+          const storedNeighborhoods = neighborhoodsStore.neighborhoods || [];
+          for (const storedNeighborhood of storedNeighborhoods) {
+            if (!currentNeighborhoodIds.has(storedNeighborhood.id)) {
+              console.log(`🗑️ [NEIGHBORHOODS-POLLING] Bairro deletado detectado: ${storedNeighborhood.id} - ${storedNeighborhood.name}`);
+              neighborhoodsStore.removeNeighborhood(storedNeighborhood.id);
+            }
           }
         }
       } catch (error) {
