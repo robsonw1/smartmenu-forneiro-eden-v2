@@ -504,6 +504,7 @@ export function CheckoutModal() {
     try {
       const DEFAULT_DELIVERY_FEE = 8.0; // Taxa padrão em reais
       const newNeighborhoodId = `user-${neighborhoodInput.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+      const trimmedName = neighborhoodInput.trim();
 
       // Salvar novo bairro no Supabase
       const { error } = await (supabase as any)
@@ -511,7 +512,7 @@ export function CheckoutModal() {
         .insert([
           {
             id: newNeighborhoodId,
-            name: neighborhoodInput.trim(),
+            name: trimmedName,
             delivery_fee: DEFAULT_DELIVERY_FEE,
             is_active: true,
           },
@@ -523,10 +524,18 @@ export function CheckoutModal() {
         return;
       }
 
-      // Selecionar o bairro criado
-      setNeighborhoodInput(neighborhoodInput.trim());
+      // ✅ CRITICAL FIX: Setar selectedNeighborhood IMEDIATAMENTE após criar
+      const newNeighborhood = {
+        id: newNeighborhoodId,
+        name: trimmedName,
+        deliveryFee: DEFAULT_DELIVERY_FEE,
+        isActive: true,
+      };
+      
+      setSelectedNeighborhood(newNeighborhood as any);
+      setNeighborhoodInput(trimmedName);
       setShowNeighborhoodDropdown(false);
-      toast.success(`✅ Bairro "${neighborhoodInput}" adicionado com sucesso!`);
+      toast.success(`✅ Bairro "${trimmedName}" adicionado com sucesso!`);
     } catch (error) {
       console.error('Erro:', error);
       toast.error('Erro ao adicionar bairro');
