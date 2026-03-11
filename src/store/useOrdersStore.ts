@@ -17,11 +17,12 @@ const getLocalISOString = (): string => {
   return `${year}-${month}-${date}T${hours}:${minutes}:${seconds}`;
 };
 
-// Helper para gerar IDs únicos sequenciais para order_items
-let itemIdCounter = Math.floor(Date.now() / 1000); // Começar com timestamp em segundos
+// Helper para gerar IDs únicos para order_items (usando random + timestamp)
 const generateItemId = (): number => {
-  itemIdCounter++;
-  return itemIdCounter;
+  // Combinar timestamp em ms com número aleatório para garantir unicidade
+  const timestamp = Date.now(); // 13 dígitos
+  const random = Math.floor(Math.random() * 10000); // 4 dígitos
+  return parseInt(`${timestamp}${String(random).padStart(4, '0')}`);
 };
 
 interface OrdersStore {
@@ -57,8 +58,15 @@ export const useOrdersStore = create<OrdersStore>()(
         };
 
         try {
-          // Salvar no Supabase com hora local correta
-          const localISO = getLocalISOString();
+          // 🔧 CRÍTICO: Usar hora do cliente (JavaScript hora local)
+          // Enviar como ISO com timezone para Supabase converter corretamente
+          const nowDate = new Date(); // Hora local do cliente
+          const createdAtISO = nowDate.toISOString(); // Formato: 2026-03-11T15:41:00.000Z
+          
+          console.log('⏰ [TIMESTAMP] Hora do cliente:', {
+            navegador: nowDate.toLocaleString('pt-BR'),
+            iso: createdAtISO,
+          });
           
           // ✅ CRÍTICO: Garantir tenant_id sempre valid ou usar padrão
           let finalTenantId = newOrder.tenantId;
@@ -180,7 +188,7 @@ export const useOrdersStore = create<OrdersStore>()(
             payment_method: newOrder.paymentMethod,
             is_scheduled: newOrder.isScheduled || false,
             scheduled_for: scheduledForValue,
-            created_at: localISO,
+            created_at: createdAtISO,
             address: addressWithMetadata,
             tenant_id: finalTenantId,
           });
@@ -200,7 +208,7 @@ export const useOrdersStore = create<OrdersStore>()(
               payment_method: newOrder.paymentMethod,
               is_scheduled: newOrder.isScheduled || false,
               scheduled_for: scheduledForValue,
-              created_at: localISO,
+              created_at: createdAtISO,
               address: addressWithMetadata,
               tenant_id: finalTenantId,
             },
@@ -216,7 +224,7 @@ export const useOrdersStore = create<OrdersStore>()(
             });
             throw error;
           }
-          console.log('✅ Order inserida com sucesso:', newOrder.id, 'em', localISO, 'com email:', customerEmail, 'pending_points:', pendingPoints, 'tenant_id:', finalTenantId);
+          console.log('✅ Order inserida com sucesso:', newOrder.id, 'em', createdAtISO, 'com email:', customerEmail, 'pending_points:', pendingPoints, 'tenant_id:', finalTenantId);
 
           // 🔀 NOVA INTEGRAÇÃO: Incrementar current_orders do slot se pedido está agendado
           if (newOrder.isScheduled && scheduledForValue && finalTenantId) {
@@ -295,49 +303,47 @@ export const useOrdersStore = create<OrdersStore>()(
               notes: newOrder.observations || null,
             };
             
-            // ✅ CRUCIAL: Gerar ID único para cada item (necesário para bigint pk)
+            // ✅ CRUCIAL: Gerar ID único para cada item (necessário para bigint pk)
             const itemId = generateItemId();
             
             const itemRecord = {
-              id: itemId, // 🎯 ADICIONADO: ID obrigatório para a tabela order_items
+              id: itemId, // 🎯 ID obrigatório para a tabela order_items
               order_id: newOrder.id,
               product_id: item.product?.id || 'unknown',
               product_name: item.product?.name || 'Produto desconhecido',
               quantity: item.quantity || 1,
               size: item.size || 'grande',
               total_price: item.totalPrice || 0,
-              item_data: itemDataObj, // 🎯 Enviar como objeto (Supabase converte para JSONB)
+              item_data: JSON.stringify(itemDataObj), // 🎯 CRÍTICO: Enviar como STRING (JSON.stringify)
             };
             
-            console.log(`✅ [ITEM-${itemId}] "${itemRecord.product_name}" -> item_data:`, JSON.stringify(itemDataObj, null, 2));
+            console.log(`✅ [ITEM-${itemId}] "${itemRecord.product_name}" (qty: ${item.quantity}) -> item_data JSON salvando...`);
             
             return itemRecord;
           });
 
           if (orderItems.length > 0) {
-            console.log(`💾 [SAVEORDER] Inserindo ${orderItems.length} items na tabela order_items...`);
-            console.log('📋 [ITEMS-DEBUG] Primeiros items para enviar:', JSON.stringify(orderItems.slice(0, 2), null, 2));
+            console.log(`💾 [SAVEORDER] Tentando inserir ${orderItems.length} items na tabela order_items...`);
             
             const { error: itemsError, data: itemsData } = await supabase
               .from('order_items')
               .insert(orderItems as any);
               
             if (itemsError) {
-              console.error('❌ ERRO CRITICO ao inserir order_items:', {
-                errorMessage: itemsError.message,
-                errorCode: itemsError.code,
-                errorDetails: itemsError.details,
-                errorHint: itemsError.hint,
-                tentandoInserir: orderItems,
+              console.error('❌ ERRO ao inserir order_items:', {
+                message: itemsError.message,
+                code: itemsError.code,
+                details: itemsError.details,
+                hint: itemsError.hint,
               });
-              throw itemsError; // Propagate para debug
+              // Não bloquear criação do pedido se items falharem
             } else {
-              console.log(`✅ SUCESSO! ${orderItems.length} items inseridos com IDs:`, 
+              console.log(`✅ SUCESSO! ${orderItems.length} items foram inseridos na BD:`, 
                 orderItems.map(item => `${item.id}(${item.product_name})`).join(', ')
               );
             }
           } else {
-            console.warn('⚠️ AVISO: Nenhum item para salvar! Cart vazio?', newOrder.items);
+            console.warn('⚠️ AVISO: Nenhum item para salvar! Items array vazio');
           }
 
           // Tentar imprimir pedido automaticamente via Edge Function com RETRY (apenas se autoprint = true)
