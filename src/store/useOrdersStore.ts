@@ -261,7 +261,7 @@ export const useOrdersStore = create<OrdersStore>()(
           }
 
           // Salvar itens do pedido - Usar apenas campos que existem na tabela order_items
-          // ✅ RESTAURADO da V6: Estrutura simples que funcionava sem o id problemático
+          // ✅ COMPLETO: Estrutura expandida com TODOS os detalhes selecionados pelo cliente
           const orderItems = newOrder.items.map((item) => ({
             order_id: newOrder.id,
             product_id: item.product.id,
@@ -269,18 +269,37 @@ export const useOrdersStore = create<OrdersStore>()(
             quantity: item.quantity,
             size: item.size,
             total_price: item.totalPrice,
-            // Armazenar TODOS os dados do item em item_data (JSONB) - estrutura V6 comprovada
+            // ✨ Armazenar TUDO em item_data - todos os detalhes selecionados pelo cliente
             item_data: JSON.stringify({
+              // Identificação do produto
+              productId: item.product.id,
+              productName: item.product.name,
+              quantity: item.quantity,
+              size: item.size || 'único', // broto, grande, ou único para não-pizzas
+              
+              // Pizza type
               pizzaType: item.isHalfHalf ? 'meia-meia' : 'inteira',
               sabor1: item.product.name,
               sabor2: item.isHalfHalf ? item.secondHalf?.name : undefined,
+              
+              // Detailed combo pizzas (se for combo)
+              comboPizzas: item.comboPizzasData || [],
+              
+              // Configurações escolhidas pelo cliente
+              border: item.border?.name || 'Sem borda',
+              drink: item.drink?.name || 'Sem bebida',
+              isDrinkFree: item.isDrinkFree || false,
+              
+              // Adicionais e customizações
+              extras: item.extras?.map(e => e.name) || [],
               customIngredients: item.customIngredients || [],
               paidIngredients: item.paidIngredients || [],
-              extras: item.extras?.map(e => e.name) || [],
-              drink: item.drink?.name || 'Sem bebida',
-              border: item.border?.name || 'Sem borda',
-              comboPizzas: item.comboPizzasData || [],
+              
+              // Observações
               notes: newOrder.observations || null,
+              
+              // Cálculo de valor
+              totalPrice: item.totalPrice,
             }),
           }));
 
@@ -635,17 +654,7 @@ export const useOrdersStore = create<OrdersStore>()(
                   deliveryFee: row.delivery_fee,
                   paymentMethod: paymentMethodFromMetadata as any,
                   items: items?.map((item: any) => {
-                    // ✅ CRÍTICO: Parsear item_data JSONB para recuperar TODOS os detalhes do item
-                    let itemData: any = {};
-                    try {
-                      itemData = item.item_data ? JSON.parse(item.item_data) : {};
-                    } catch (e) {
-                      console.warn('⚠️ Erro ao parsear item_data:', e);
-                      itemData = {};
-                    }
-                    
-                    // ✅ DEFENSIVE: Ensure all properties are properly typed to prevent React errors
-                    // If JSONB contains malformed data (objects instead of strings), convert them
+                    // ✅ Helper functions for safe data extraction
                     const extractName = (value: any): string | undefined => {
                       if (!value) return undefined;
                       if (typeof value === 'string') return value;
@@ -661,19 +670,28 @@ export const useOrdersStore = create<OrdersStore>()(
                         return String(item);
                       }).filter(Boolean);
                     };
-
+                    
+                    // ✅ CRÍTICO: Parsear item_data JSONB para recuperar TODOS os detalhes do item
+                    let itemData: any = {};
+                    try {
+                      itemData = item.item_data ? JSON.parse(item.item_data) : {};
+                    } catch (e) {
+                      console.warn('⚠️ Erro ao parsear item_data:', e);
+                      itemData = {};
+                    }
+                    
+                    // ✨ NOVO: Recuperar TODOS os campos detalhados
                     return {
                       id: item.id || `item-${Date.now()}-${Math.random()}`,
                       product: { id: item.product_id, name: item.product_name } as any,
                       quantity: item.quantity,
                       size: item.size,
                       totalPrice: item.total_price,
-                      // ✅ Recuperar dados complexos do item_data JSONB (com type casting)
-                      // ✅ FIXED: border field was checking itemData.borda instead of itemData.border - typo fixed!
                       isHalfHalf: itemData.pizzaType === 'meia-meia' || false,
                       secondHalf: itemData.sabor2 ? ({ name: extractName(itemData.sabor2) || itemData.sabor2 } as any) : undefined,
                       border: itemData.border ? ({ name: extractName(itemData.border) || itemData.border } as any) : undefined,
                       drink: itemData.drink && itemData.drink !== 'Sem bebida' ? ({ name: extractName(itemData.drink) || itemData.drink } as any) : undefined,
+                      isDrinkFree: itemData.isDrinkFree || false,
                       extras: itemData.extras ? itemData.extras.map((extra: any) => ({ name: extractName(extra) || String(extra) } as any)) : [],
                       customIngredients: extractNameArray(itemData.customIngredients || []),
                       paidIngredients: extractNameArray(itemData.paidIngredients || []),
