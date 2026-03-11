@@ -269,37 +269,18 @@ export const useOrdersStore = create<OrdersStore>()(
             quantity: item.quantity,
             size: item.size,
             total_price: item.totalPrice,
-            // ✨ Armazenar TUDO em item_data - todos os detalhes selecionados pelo cliente
+            // Armazenar TODOS os dados do item em item_data (JSONB) - estrutura V6 comprovada
             item_data: JSON.stringify({
-              // Identificação do produto
-              productId: item.product.id,
-              productName: item.product.name,
-              quantity: item.quantity,
-              size: item.size || 'único', // broto, grande, ou único para não-pizzas
-              
-              // Pizza type
               pizzaType: item.isHalfHalf ? 'meia-meia' : 'inteira',
               sabor1: item.product.name,
               sabor2: item.isHalfHalf ? item.secondHalf?.name : undefined,
-              
-              // Detailed combo pizzas (se for combo)
-              comboPizzas: item.comboPizzasData || [],
-              
-              // Configurações escolhidas pelo cliente
-              border: item.border?.name || 'Sem borda',
-              drink: item.drink?.name || 'Sem bebida',
-              isDrinkFree: item.isDrinkFree || false,
-              
-              // Adicionais e customizações
-              extras: item.extras?.map(e => e.name) || [],
               customIngredients: item.customIngredients || [],
               paidIngredients: item.paidIngredients || [],
-              
-              // Observações
+              extras: item.extras?.map(e => e.name) || [],
+              drink: item.drink?.name || 'Sem bebida',
+              border: item.border?.name || 'Sem borda',
+              comboPizzas: item.comboPizzasData || [],
               notes: newOrder.observations || null,
-              
-              // Cálculo de valor
-              totalPrice: item.totalPrice,
             }),
           }));
 
@@ -691,7 +672,6 @@ export const useOrdersStore = create<OrdersStore>()(
                       secondHalf: itemData.sabor2 ? ({ name: extractName(itemData.sabor2) || itemData.sabor2 } as any) : undefined,
                       border: itemData.border ? ({ name: extractName(itemData.border) || itemData.border } as any) : undefined,
                       drink: itemData.drink && itemData.drink !== 'Sem bebida' ? ({ name: extractName(itemData.drink) || itemData.drink } as any) : undefined,
-                      isDrinkFree: itemData.isDrinkFree || false,
                       extras: itemData.extras ? itemData.extras.map((extra: any) => ({ name: extractName(extra) || String(extra) } as any)) : [],
                       customIngredients: extractNameArray(itemData.customIngredients || []),
                       paidIngredients: extractNameArray(itemData.paidIngredients || []),
