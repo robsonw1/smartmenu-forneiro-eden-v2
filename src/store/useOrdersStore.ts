@@ -471,14 +471,14 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
       if (error) {
         console.error('ÔØî Erro ao sincronizar settings com Supabase:', error);
-        return { success: false, message: 'Erro ao sincronizar configurações' };
+        return { success: false, message: 'Erro ao sincronizar configura├º├Áes' };
       }
 
       console.log('Ô£à Settings sincronizados com Supabase com TODOS os dados');
       return { success: true, message: 'Configura├º├Áes sincronizadas com sucesso!' };
     } catch (error) {
       console.error('ÔØî Erro ao sincronizar settings:', error);
-      return { success: false, message: 'Erro ao sincronizar configurações' };
+      return { success: false, message: 'Erro ao sincronizar configura├º├Áes' };
     }
   },
 }));
