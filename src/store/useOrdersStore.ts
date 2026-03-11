@@ -17,12 +17,11 @@ const getLocalISOString = (): string => {
   return `${year}-${month}-${date}T${hours}:${minutes}:${seconds}`;
 };
 
-// Helper para gerar IDs únicos para order_items (usando random + timestamp)
+// Helper para gerar IDs únicos para order_items (usando timestamp + random pequeno)
 const generateItemId = (): number => {
-  // Combinar timestamp em ms com número aleatório para garantir unicidade
-  const timestamp = Date.now(); // 13 dígitos
-  const random = Math.floor(Math.random() * 10000); // 4 dígitos
-  return parseInt(`${timestamp}${String(random).padStart(4, '0')}`);
+  // Gerar um número único e pequeno o bastante para bigint
+  // Formato: timestamp em ms + número aleatório (garante unicidade e está dentro dos limites de bigint)
+  return Date.now() * 1000 + Math.floor(Math.random() * 1000);
 };
 
 interface OrdersStore {
@@ -306,23 +305,21 @@ export const useOrdersStore = create<OrdersStore>()(
             // ✅ CRUCIAL: Gerar ID único para cada item (necessário para bigint pk)
             const itemId = generateItemId();
             
-            // 🔧 CORRIGIDO: Mapear para campos exatos da tabela order_items
-            // A tabela espera: id, order_id, product_id, product_name, quantity, size, price, total_price, custom_ingredients, paid_ingredients, created_at
+            // 🔧 CORRIGIDO: Mapear para campos EXATOS da tabela order_items conforme schema
+            // Schema: id, order_id, product_id, product_name, quantity, size, total_price, item_data (jsonb), created_at
             const itemRecord = {
-              id: itemId, // 🎯 ID obrigatório para a tabela order_items
+              id: itemId, // 🎯 ID obrigatório bigint
               order_id: newOrder.id,
               product_id: item.product?.id || 'unknown',
               product_name: item.product?.name || 'Produto desconhecido',
               quantity: item.quantity || 1,
               size: item.size || 'grande',
-              price: item.product?.price || (item.totalPrice / (item.quantity || 1)), // ✅ CAMPO OBRIGATÓRIO: preço unitário
               total_price: item.totalPrice || 0,
-              custom_ingredients: Array.isArray(item.customIngredients) && item.customIngredients.length > 0 ? JSON.stringify(item.customIngredients) : null, // ✅ Converter para JSON string
-              paid_ingredients: Array.isArray(item.paidIngredients) && item.paidIngredients.length > 0 ? JSON.stringify(item.paidIngredients) : null, // ✅ Converter para JSON string
-              created_at: createdAtISO, // ✅ Usar timestamp do pedido
+              item_data: itemDataObj, // ✅ JSONB com TODOS os dados do item (sem JSON.stringify - Supabase cuida)
+              created_at: createdAtISO, // Usar timestamp do pedido
             };
             
-            console.log(`✅ [ITEM-${itemId}] "${itemRecord.product_name}" (qty: ${item.quantity}, price: ${itemRecord.price}, total: ${itemRecord.total_price}) -> inserindo na BD...`);
+            console.log(`✅ [ITEM-${itemId}] "${itemRecord.product_name}" (qty: ${item.quantity}, total: ${itemRecord.total_price}) -> inserindo na BD...`);
             
             return itemRecord;
           });
