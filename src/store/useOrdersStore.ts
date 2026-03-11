@@ -644,6 +644,24 @@ export const useOrdersStore = create<OrdersStore>()(
                       itemData = {};
                     }
                     
+                    // ✅ DEFENSIVE: Ensure all properties are properly typed to prevent React errors
+                    // If JSONB contains malformed data (objects instead of strings), convert them
+                    const extractName = (value: any): string | undefined => {
+                      if (!value) return undefined;
+                      if (typeof value === 'string') return value;
+                      if (typeof value === 'object' && value.name) return String(value.name);
+                      return undefined;
+                    };
+                    
+                    const extractNameArray = (arr: any[]): string[] => {
+                      if (!Array.isArray(arr)) return [];
+                      return arr.map(item => {
+                        if (typeof item === 'string') return item;
+                        if (typeof item === 'object' && item.name) return String(item.name);
+                        return String(item);
+                      }).filter(Boolean);
+                    };
+
                     return {
                       id: item.id || `item-${Date.now()}-${Math.random()}`,
                       product: { id: item.product_id, name: item.product_name } as any,
@@ -651,13 +669,14 @@ export const useOrdersStore = create<OrdersStore>()(
                       size: item.size,
                       totalPrice: item.total_price,
                       // ✅ Recuperar dados complexos do item_data JSONB (com type casting)
+                      // ✅ FIXED: border field was checking itemData.borda instead of itemData.border - typo fixed!
                       isHalfHalf: itemData.pizzaType === 'meia-meia' || false,
-                      secondHalf: itemData.sabor2 ? ({ name: itemData.sabor2 } as any) : undefined,
-                      border: itemData.borda && itemData.borda !== 'Sem borda' ? ({ name: itemData.borda } as any) : undefined,
-                      drink: itemData.drink && itemData.drink !== 'Sem bebida' ? ({ name: itemData.drink } as any) : undefined,
-                      extras: (itemData.extras?.map((name: string) => ({ name } as any)) || []),
-                      customIngredients: itemData.customIngredients || [],
-                      paidIngredients: itemData.paidIngredients || [],
+                      secondHalf: itemData.sabor2 ? ({ name: extractName(itemData.sabor2) || itemData.sabor2 } as any) : undefined,
+                      border: itemData.border ? ({ name: extractName(itemData.border) || itemData.border } as any) : undefined,
+                      drink: itemData.drink && itemData.drink !== 'Sem bebida' ? ({ name: extractName(itemData.drink) || itemData.drink } as any) : undefined,
+                      extras: itemData.extras ? itemData.extras.map((extra: any) => ({ name: extractName(extra) || String(extra) } as any)) : [],
+                      customIngredients: extractNameArray(itemData.customIngredients || []),
+                      paidIngredients: extractNameArray(itemData.paidIngredients || []),
                       comboPizzasData: itemData.comboPizzas || [],
                       notes: itemData.notes,
                     };
