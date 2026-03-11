@@ -306,6 +306,8 @@ export const useOrdersStore = create<OrdersStore>()(
             // ✅ CRUCIAL: Gerar ID único para cada item (necessário para bigint pk)
             const itemId = generateItemId();
             
+            // 🔧 CORRIGIDO: Mapear para campos exatos da tabela order_items
+            // A tabela espera: id, order_id, product_id, product_name, quantity, size, price, total_price, custom_ingredients, paid_ingredients, created_at
             const itemRecord = {
               id: itemId, // 🎯 ID obrigatório para a tabela order_items
               order_id: newOrder.id,
@@ -313,11 +315,14 @@ export const useOrdersStore = create<OrdersStore>()(
               product_name: item.product?.name || 'Produto desconhecido',
               quantity: item.quantity || 1,
               size: item.size || 'grande',
+              price: item.product?.price || (item.totalPrice / (item.quantity || 1)), // ✅ CAMPO OBRIGATÓRIO: preço unitário
               total_price: item.totalPrice || 0,
-              item_data: JSON.stringify(itemDataObj), // 🎯 CRÍTICO: Enviar como STRING (JSON.stringify)
+              custom_ingredients: Array.isArray(item.customIngredients) && item.customIngredients.length > 0 ? JSON.stringify(item.customIngredients) : null, // ✅ Converter para JSON string
+              paid_ingredients: Array.isArray(item.paidIngredients) && item.paidIngredients.length > 0 ? JSON.stringify(item.paidIngredients) : null, // ✅ Converter para JSON string
+              created_at: createdAtISO, // ✅ Usar timestamp do pedido
             };
             
-            console.log(`✅ [ITEM-${itemId}] "${itemRecord.product_name}" (qty: ${item.quantity}) -> item_data JSON salvando...`);
+            console.log(`✅ [ITEM-${itemId}] "${itemRecord.product_name}" (qty: ${item.quantity}, price: ${itemRecord.price}, total: ${itemRecord.total_price}) -> inserindo na BD...`);
             
             return itemRecord;
           });
@@ -744,14 +749,42 @@ export const useOrdersStore = create<OrdersStore>()(
                             }))
                         : [],
                       
-                      // Ingredientes customizados
-                      customIngredients: Array.isArray(itemData.customIngredients)
-                        ? itemData.customIngredients.filter((i: any) => i).map((i: any) => String(i))
-                        : [],
+                      // Ingredientes customizados (agora como JSON string)
+                      customIngredients: (() => {
+                        try {
+                          // Tentar parsear custom_ingredients como JSON string
+                          if (item.custom_ingredients) {
+                            if (typeof item.custom_ingredients === 'string') {
+                              return JSON.parse(item.custom_ingredients);
+                            }
+                            return Array.isArray(item.custom_ingredients) ? item.custom_ingredients : [];
+                          }
+                          // Fallback para itemData (compatibilidade com dados antigos)
+                          return Array.isArray(itemData.customIngredients)
+                            ? itemData.customIngredients.filter((i: any) => i).map((i: any) => String(i))
+                            : [];
+                        } catch (e) {
+                          return [];
+                        }
+                      })(),
                       
-                      paidIngredients: Array.isArray(itemData.paidIngredients)
-                        ? itemData.paidIngredients.filter((i: any) => i).map((i: any) => String(i))
-                        : [],
+                      paidIngredients: (() => {
+                        try {
+                          // Tentar parsear paid_ingredients como JSON string
+                          if (item.paid_ingredients) {
+                            if (typeof item.paid_ingredients === 'string') {
+                              return JSON.parse(item.paid_ingredients);
+                            }
+                            return Array.isArray(item.paid_ingredients) ? item.paid_ingredients : [];
+                          }
+                          // Fallback para itemData (compatibilidade com dados antigos)
+                          return Array.isArray(itemData.paidIngredients)
+                            ? itemData.paidIngredients.filter((i: any) => i).map((i: any) => String(i))
+                            : [];
+                        } catch (e) {
+                          return [];
+                        }
+                      })(),
                       
                       // Combos
                       comboPizzasData: Array.isArray(itemData.comboPizzas) 
