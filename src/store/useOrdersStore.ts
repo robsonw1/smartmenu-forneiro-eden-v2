@@ -261,7 +261,8 @@ export const useOrdersStore = create<OrdersStore>()(
           }
 
           // Salvar itens do pedido - Usar apenas campos que existem na tabela order_items
-          const orderItems = newOrder.items.map((item) => ({
+          const orderItems = newOrder.items.map((item, index) => ({
+            id: Date.now() + index, // Gerar ID único numérico para cada item
             order_id: newOrder.id,
             product_id: item.product.id,
             product_name: item.product.name,
