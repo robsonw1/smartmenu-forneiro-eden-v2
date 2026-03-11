@@ -448,46 +448,50 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
 
           {/* Items */}
           <div>
-            <h4 className="font-semibold mb-3">Itens do Pedido</h4>
+            <h4 className="font-semibold mb-2">Itens do Pedido</h4>
             <div className="space-y-2">
               {(localOrder.items ?? []).map((item, index) => {
                 if (!item || !item.product) return null;
                 return (
-                  <div key={index} className="text-sm">
-                    <p className="font-semibold">{item.quantity}x {item.product?.name}{item.size && ` (${item.size})`}</p>
-                    {item.isHalfHalf && item.secondHalf && (
-                      <p className="ml-4 text-muted-foreground">• Meia Meia: {extractName(item.product)} / {extractName(item.secondHalf)}</p>
-                    )}
-                    {item.border && (
-                      <p className="ml-4 text-muted-foreground">• Borda: {extractName(item.border)}</p>
-                    )}
-                    {item.drink && (
-                      <p className="ml-4 text-muted-foreground">• Bebida: {extractName(item.drink)}</p>
-                    )}
-                    {item.extras && item.extras.length > 0 && (
-                      <p className="ml-4 text-muted-foreground">• Adicionais: {item.extras.map(e => extractName(e) || String(e)).join(', ')}</p>
-                    )}
-                    {item.customIngredients && item.customIngredients.length > 0 && (
-                      <p className="ml-4 text-muted-foreground">• Grátis: {item.customIngredients.map(ing => String(ing)).join(', ')}</p>
-                    )}
-                    {item.paidIngredients && item.paidIngredients.length > 0 && (
-                      <p className="ml-4 text-muted-foreground">• Extras: {item.paidIngredients.map(ing => String(ing)).join(', ')}</p>
-                    )}
-                    {item.comboPizzasData && item.comboPizzasData.length > 0 && (
-                      <div className="ml-4 text-muted-foreground">
-                        {sanitizeComboData(item.comboPizzasData).map((pizza: any, pizzaIndex: number) => (
-                          <p key={pizzaIndex}>
-                            • Pizza {pizzaIndex + 1}: {pizza.type === 'meia-meia' ? `${String(pizza.sabor1)} / ${String(pizza.sabor2)}` : String(pizza.sabor1)}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                    {item.notes && <p className="ml-4 text-muted-foreground italic">• Notas: {item.notes}</p>}
+                  <div key={index} className="flex justify-between items-start p-2 bg-secondary/50 rounded-lg text-sm">
+                    <div>
+                      <p className="font-medium">
+                        {item.quantity}x {item.product?.name}
+                        {item.size && ` (${item.size === 'broto' ? 'Broto' : 'Grande'})`}
+                      </p>
+                      {item.isHalfHalf && item.secondHalf && (
+                        <p className="text-muted-foreground">
+                          Meia: {extractName(item.secondHalf)}
+                        </p>
+                      )}
+                      {item.border && (
+                        <p className="text-muted-foreground">
+                          Borda: {extractName(item.border)}
+                        </p>
+                      )}
+                      {item.drink && (
+                        <p className="text-muted-foreground">
+                          Bebida: {extractName(item.drink)}
+                        </p>
+                      )}
+                      {item.extras && item.extras.length > 0 && (
+                        <p className="text-muted-foreground text-xs">
+                          Adicionais: {item.extras.map(e => extractName(e) || String(e)).join(', ')}
+                        </p>
+                      )}
+                      {item.notes && (
+                        <p className="text-muted-foreground text-xs italic">
+                          Obs: {item.notes}
+                        </p>
+                      )}
+                    </div>
+                    <span className="font-medium">{formatPrice(item.totalPrice)}</span>
                   </div>
                 );
               })}
             </div>
           </div>
+
           <Separator />
 
           {/* Totals */}
