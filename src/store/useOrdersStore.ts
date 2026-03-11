@@ -260,29 +260,26 @@ export const useOrdersStore = create<OrdersStore>()(
             }
           }
 
-          // Salvar itens do pedido - Mapear corretamente para campos da tabela order_items
+          // Salvar itens do pedido - Usar apenas campos que existem na tabela order_items
           const orderItems = newOrder.items.map((item) => ({
             order_id: newOrder.id,
             product_id: item.product.id,
             product_name: item.product.name,
             quantity: item.quantity,
             size: item.size || null,
-            price: item.quantity > 0 ? item.totalPrice / item.quantity : 0, // Unit price (REQUIRED field)
             total_price: item.totalPrice,
-            // Store all metadata in custom_ingredients as JSON for complete item reconstruction
-            custom_ingredients: JSON.stringify({
+            // Armazenar TODOS os dados do item em item_data (JSONB)
+            item_data: JSON.stringify({
+              unitPrice: item.quantity > 0 ? item.totalPrice / item.quantity : 0,
               isHalfHalf: item.isHalfHalf || false,
               secondHalf: item.secondHalf?.name || null,
               extras: item.extras?.map(e => ({ id: e.id, name: e.name })) || [],
               drink: item.drink ? { id: item.drink.id, name: item.drink.name, isFree: item.isDrinkFree } : null,
               border: item.border ? { id: item.border.id, name: item.border.name } : null,
               comboFlavors: item.comboPizzasData || [],
-              notes: newOrder.observations || null,
-            }),
-            // Store customer-added extra ingredients in paid_ingredients
-            paid_ingredients: JSON.stringify({
               customIngredients: item.customIngredients || [],
               paidIngredients: item.paidIngredients || [],
+              notes: newOrder.observations || null,
             }),
           }));
 
