@@ -58,6 +58,24 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
   const [localOrder, setLocalOrder] = useState<Order | null>(order);
 
+  // 🛡️ Defensive: Ensure combo pizzas data is always valid
+  const sanitizeComboData = (comboPizzas: any[]): any[] => {
+    if (!Array.isArray(comboPizzas)) return [];
+    return comboPizzas.map((pizza: any) => ({
+      sabor1: pizza.sabor1 ? String(pizza.sabor1) : 'Desconhecido',
+      sabor2: pizza.sabor2 ? String(pizza.sabor2) : undefined,
+      type: pizza.type || 'inteira',
+    }));
+  };
+
+  // 🛡️ Defensive: Extract name safely from any value (string or object)
+  const extractName = (value: any): string | undefined => {
+    if (!value) return undefined;
+    if (typeof value === 'string') return value;
+    if (typeof value === 'object' && value.name) return String(value.name);
+    return undefined;
+  };
+
   // 🔴 REALTIME: Monitorar mudanças no status da ordem para refrescar UI
   useEffect(() => {
     if (!open || !order?.id) return;
@@ -462,7 +480,7 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
                       )}
                       {item.isHalfHalf && item.secondHalf && (
                         <p className="text-muted-foreground">
-                          <span className="font-medium">Sabor 2:</span> {item.secondHalf?.name}
+                          <span className="font-medium">Sabor 2:</span> {extractName(item.secondHalf)}
                         </p>
                       )}
                       
@@ -471,10 +489,10 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
                         <div className="mt-2">
                           <p className="font-medium text-muted-foreground">Pizzas do Combo:</p>
                           <div className="ml-2 space-y-1">
-                            {item.comboPizzasData.map((pizza: any, pizzaIndex: number) => (
+                            {sanitizeComboData(item.comboPizzasData).map((pizza: any, pizzaIndex: number) => (
                               <p key={pizzaIndex} className="text-muted-foreground text-xs">
-                                <span className="font-medium">Pizza {pizzaIndex + 1}:</span> {pizza.sabor1}
-                                {pizza.sabor2 && ` / ${pizza.sabor2}`}
+                                <span className="font-medium">Pizza {pizzaIndex + 1}:</span> {String(pizza.sabor1)}
+                                {pizza.sabor2 && ` / ${String(pizza.sabor2)}`}
                                 {pizza.type === 'meia-meia' && ' (Meia Meia)'}
                               </p>
                             ))}
@@ -485,35 +503,35 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
                       {/* Borda */}
                       {item.border && (
                         <p className="text-muted-foreground">
-                          <span className="font-medium">Borda:</span> {item.border?.name}
+                          <span className="font-medium">Borda:</span> {extractName(item.border)}
                         </p>
                       )}
                       
                       {/* Bebida */}
                       {item.drink && (
                         <p className="text-muted-foreground">
-                          <span className="font-medium">Bebida:</span> {item.drink?.name}
+                          <span className="font-medium">Bebida:</span> {extractName(item.drink)}
                         </p>
                       )}
                       
                       {/* Adicionais */}
                       {item.extras && item.extras.length > 0 && (
                         <p className="text-muted-foreground">
-                          <span className="font-medium">Adicionais:</span> {item.extras.map(e => e.name).join(', ')}
+                          <span className="font-medium">Adicionais:</span> {item.extras.map(e => extractName(e) || String(e)).join(', ')}
                         </p>
                       )}
                       
                       {/* Ingredientes Customizados (Grátis) */}
                       {item.customIngredients && item.customIngredients.length > 0 && (
                         <p className="text-muted-foreground">
-                          <span className="font-medium">Ingredientes Grátis:</span> {item.customIngredients.join(', ')}
+                          <span className="font-medium">Ingredientes Grátis:</span> {item.customIngredients.map(ing => String(ing)).join(', ')}
                         </p>
                       )}
                       
                       {/* Ingredientes Pagos */}
                       {item.paidIngredients && item.paidIngredients.length > 0 && (
                         <p className="text-muted-foreground">
-                          <span className="font-medium">Ingredientes Extras:</span> {item.paidIngredients.join(', ')}
+                          <span className="font-medium">Ingredientes Extras:</span> {item.paidIngredients.map(ing => String(ing)).join(', ')}
                         </p>
                       )}
                       
