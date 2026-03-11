@@ -830,6 +830,19 @@ export function CheckoutModal() {
       pointsRedeemed: pointsRedeemed
     });
 
+    // 🔍 LOG: Verificar items antes de criar pedido
+    console.log('📦 [CHECKOUT] Items para criar pedido:', {
+      totalItems: items?.length,
+      primeiroItem: items?.[0],
+      itemsWithProductInfo: items?.map((i: any) => ({
+        product: i.product?.name,
+        quantity: i.quantity,
+        size: i.size,
+        hasCustomIngredients: !!i.customIngredients?.length,
+        hasExtras: !!i.extras?.length,
+      })),
+    });
+
     const createdOrder = await addOrder({
       customer: {
         name: customer.name,
