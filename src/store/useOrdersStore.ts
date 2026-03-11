@@ -261,7 +261,7 @@ export const useOrdersStore = create<OrdersStore>()(
           }
 
           // Salvar itens do pedido - Usar apenas campos que existem na tabela order_items
-          // ✅ COMPLETO: Estrutura expandida com TODOS os detalhes selecionados pelo cliente
+          // ✅ VERSÃO 6: Abordagem simples que funciona comprovadamente
           const orderItems = newOrder.items.map((item) => ({
             order_id: newOrder.id,
             product_id: item.product.id,
@@ -269,38 +269,24 @@ export const useOrdersStore = create<OrdersStore>()(
             quantity: item.quantity,
             size: item.size,
             total_price: item.totalPrice,
-            // Armazenar TODOS os dados do item em item_data (JSONB) - estrutura V6 comprovada
             item_data: JSON.stringify({
               pizzaType: item.isHalfHalf ? 'meia-meia' : 'inteira',
-              sabor1: item.product.name,
-              sabor2: item.isHalfHalf ? item.secondHalf?.name : undefined,
               customIngredients: item.customIngredients || [],
               paidIngredients: item.paidIngredients || [],
               extras: item.extras?.map(e => e.name) || [],
-              drink: item.drink?.name || 'Sem bebida',
-              border: item.border?.name || 'Sem borda',
-              comboPizzas: item.comboPizzasData || [],
-              notes: newOrder.observations || null,
+              drink: item.drink?.name,
+              border: item.border?.name,
+              notes: newOrder.observations,
             }),
           }));
 
           if (orderItems.length > 0) {
-            const { error: itemsError, data: itemsData } = await supabase.from('order_items').insert(orderItems as any);
+            const { error: itemsError } = await supabase.from('order_items').insert(orderItems as any);
             if (itemsError) {
-              console.error('❌ ERRO CRÍTICO ao inserir order_items:', {
-                message: itemsError.message,
-                code: itemsError.code,
-                details: itemsError.details,
-                hint: itemsError.hint,
-                items: orderItems,
-              });
-              // Continuar mesmo com erro de items para não bloquear pedido, mas erro visível no console
-            } else {
-              console.log('✅ Order items inseridos com sucesso:', {
-                count: orderItems.length,
-                itemsData,
-              });
+              console.error('❌ Erro ao inserir order_items:', itemsError);
+              throw itemsError;
             }
+            console.log('✅ Order items inseridos com sucesso:', orderItems.length);
           }
 
           // Tentar imprimir pedido automaticamente via Edge Function com RETRY (apenas se autoprint = true)
@@ -588,11 +574,12 @@ export const useOrdersStore = create<OrdersStore>()(
             .select('*')
             .order('created_at', { ascending: false });
 
-          if (error) throw error;
+          if (error) {
+            console.error('Erro ao carregar orders:', error);
+            throw error;
+          }
 
-          if (data) {
-            console.log(`🔄 Sincronizando ${data.length} pedidos do Supabase`);
-            
+          if (data && data.length > 0) {
             // Buscar também os itens de cada pedido
             const ordersWithItems = await Promise.all(
               data.map(async (row: any) => {
@@ -624,6 +611,7 @@ export const useOrdersStore = create<OrdersStore>()(
                   reference: '',
                 };
                 
+                // Construir objeto de pedido com TODOS os dados do banco
                 const syncedOrder: Order = {
                   id: row.id,
                   customer: {
@@ -634,51 +622,13 @@ export const useOrdersStore = create<OrdersStore>()(
                   deliveryType: 'delivery' as const,
                   deliveryFee: row.delivery_fee,
                   paymentMethod: paymentMethodFromMetadata as any,
-                  items: items?.map((item: any) => {
-                    // ✅ Helper functions for safe data extraction
-                    const extractName = (value: any): string | undefined => {
-                      if (!value) return undefined;
-                      if (typeof value === 'string') return value;
-                      if (typeof value === 'object' && value.name) return String(value.name);
-                      return undefined;
-                    };
-                    
-                    const extractNameArray = (arr: any[]): string[] => {
-                      if (!Array.isArray(arr)) return [];
-                      return arr.map(item => {
-                        if (typeof item === 'string') return item;
-                        if (typeof item === 'object' && item.name) return String(item.name);
-                        return String(item);
-                      }).filter(Boolean);
-                    };
-                    
-                    // ✅ CRÍTICO: Parsear item_data JSONB para recuperar TODOS os detalhes do item
-                    let itemData: any = {};
-                    try {
-                      itemData = item.item_data ? JSON.parse(item.item_data) : {};
-                    } catch (e) {
-                      console.warn('⚠️ Erro ao parsear item_data:', e);
-                      itemData = {};
-                    }
-                    
-                    // ✨ NOVO: Recuperar TODOS os campos detalhados
-                    return {
-                      id: item.id || `item-${Date.now()}-${Math.random()}`,
-                      product: { id: item.product_id, name: item.product_name } as any,
-                      quantity: item.quantity,
-                      size: item.size,
-                      totalPrice: item.total_price,
-                      isHalfHalf: itemData.pizzaType === 'meia-meia' || false,
-                      secondHalf: itemData.sabor2 ? ({ name: extractName(itemData.sabor2) || itemData.sabor2 } as any) : undefined,
-                      border: itemData.border ? ({ name: extractName(itemData.border) || itemData.border } as any) : undefined,
-                      drink: itemData.drink && itemData.drink !== 'Sem bebida' ? ({ name: extractName(itemData.drink) || itemData.drink } as any) : undefined,
-                      extras: itemData.extras ? itemData.extras.map((extra: any) => ({ name: extractName(extra) || String(extra) } as any)) : [],
-                      customIngredients: extractNameArray(itemData.customIngredients || []),
-                      paidIngredients: extractNameArray(itemData.paidIngredients || []),
-                      comboPizzasData: itemData.comboPizzas || [],
-                      notes: itemData.notes,
-                    };
-                  }) || [],
+                  items: items?.map((item: any) => ({
+                    id: item.id || `item-${Date.now()}-${Math.random()}`,
+                    product: { id: item.product_id, name: item.product_name } as any,
+                    quantity: item.quantity,
+                    size: item.size,
+                    totalPrice: item.total_price,
+                  })) || [],
                   subtotal: row.total,
                   total: row.total,
                   pointsDiscount: row.points_discount || 0,
