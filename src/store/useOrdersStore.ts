@@ -17,6 +17,13 @@ const getLocalISOString = (): string => {
   return `${year}-${month}-${date}T${hours}:${minutes}:${seconds}`;
 };
 
+// Helper para gerar IDs únicos sequenciais para order_items
+let itemIdCounter = Math.floor(Date.now() / 1000); // Começar com timestamp em segundos
+const generateItemId = (): number => {
+  itemIdCounter++;
+  return itemIdCounter;
+};
+
 interface OrdersStore {
   orders: Order[];
   addOrder: (order: Omit<Order, 'id' | 'createdAt'>, autoprint?: boolean) => Promise<Order>;
@@ -260,33 +267,77 @@ export const useOrdersStore = create<OrdersStore>()(
             }
           }
 
-          // Salvar itens do pedido - Usar apenas campos que existem na tabela order_items
-          // ✅ VERSÃO 6: Abordagem simples que funciona comprovadamente
-          const orderItems = newOrder.items.map((item) => ({
-            order_id: newOrder.id,
-            product_id: item.product.id,
-            product_name: item.product.name,
-            quantity: item.quantity,
-            size: item.size,
-            total_price: item.totalPrice,
-            item_data: JSON.stringify({
+          // Salvar itens do pedido com TODOS os dados inclusos
+          // 🎯 CRÍTICO: Gerar ID para cada item (campo obrigatório na BD)
+          console.log('📦 [ITEMS] Preparando para salvar', newOrder.items?.length || 0, 'items...');
+
+          const orderItems = (newOrder.items || []).map((item) => {
+            // ✅ IMPORTANTE: Incluir TODOS os dados do item no item_data JSONB
+            const itemDataObj = {
+              // Informações da pizza
               pizzaType: item.isHalfHalf ? 'meia-meia' : 'inteira',
-              customIngredients: item.customIngredients || [],
-              paidIngredients: item.paidIngredients || [],
-              extras: item.extras?.map(e => e.name) || [],
-              drink: item.drink?.name,
-              border: item.border?.name,
-              notes: newOrder.observations,
-            }),
-          }));
+              sabor1: item.product?.name || 'Sem sabor',
+              sabor2: item.isHalfHalf && item.secondHalf ? item.secondHalf.name : null,
+              
+              // Customizações
+              customIngredients: Array.isArray(item.customIngredients) ? item.customIngredients : [],
+              paidIngredients: Array.isArray(item.paidIngredients) ? item.paidIngredients : [],
+              extras: Array.isArray(item.extras) ? item.extras.map((e: any) => typeof e === 'string' ? e : e.name || e) : [],
+              
+              // Acompanhamentos
+              drink: item.drink ? (typeof item.drink === 'string' ? item.drink : item.drink.name) : null,
+              border: item.border ? (typeof item.border === 'string' ? item.border : item.border.name) : null,
+              
+              // Combos
+              comboPizzas: Array.isArray(item.comboPizzasData) ? item.comboPizzasData : [],
+              
+              // Observações
+              notes: newOrder.observations || null,
+            };
+            
+            // ✅ CRUCIAL: Gerar ID único para cada item (necesário para bigint pk)
+            const itemId = generateItemId();
+            
+            const itemRecord = {
+              id: itemId, // 🎯 ADICIONADO: ID obrigatório para a tabela order_items
+              order_id: newOrder.id,
+              product_id: item.product?.id || 'unknown',
+              product_name: item.product?.name || 'Produto desconhecido',
+              quantity: item.quantity || 1,
+              size: item.size || 'grande',
+              total_price: item.totalPrice || 0,
+              item_data: itemDataObj, // 🎯 Enviar como objeto (Supabase converte para JSONB)
+            };
+            
+            console.log(`✅ [ITEM-${itemId}] "${itemRecord.product_name}" -> item_data:`, JSON.stringify(itemDataObj, null, 2));
+            
+            return itemRecord;
+          });
 
           if (orderItems.length > 0) {
-            const { error: itemsError } = await supabase.from('order_items').insert(orderItems as any);
+            console.log(`💾 [SAVEORDER] Inserindo ${orderItems.length} items na tabela order_items...`);
+            console.log('📋 [ITEMS-DEBUG] Primeiros items para enviar:', JSON.stringify(orderItems.slice(0, 2), null, 2));
+            
+            const { error: itemsError, data: itemsData } = await supabase
+              .from('order_items')
+              .insert(orderItems as any);
+              
             if (itemsError) {
-              console.error('❌ Erro ao inserir order_items:', itemsError);
-              throw itemsError;
+              console.error('❌ ERRO CRITICO ao inserir order_items:', {
+                errorMessage: itemsError.message,
+                errorCode: itemsError.code,
+                errorDetails: itemsError.details,
+                errorHint: itemsError.hint,
+                tentandoInserir: orderItems,
+              });
+              throw itemsError; // Propagate para debug
+            } else {
+              console.log(`✅ SUCESSO! ${orderItems.length} items inseridos com IDs:`, 
+                orderItems.map(item => `${item.id}(${item.product_name})`).join(', ')
+              );
             }
-            console.log('✅ Order items inseridos com sucesso:', orderItems.length);
+          } else {
+            console.warn('⚠️ AVISO: Nenhum item para salvar! Cart vazio?', newOrder.items);
           }
 
           // Tentar imprimir pedido automaticamente via Edge Function com RETRY (apenas se autoprint = true)
@@ -570,22 +621,32 @@ export const useOrdersStore = create<OrdersStore>()(
 
       syncOrdersFromSupabase: async () => {
         try {
+          console.log('🔍 [SYNC] Iniciando sincronização de pedidos do Supabase...');
           const { data, error } = await supabase.from('orders')
             .select('*')
             .order('created_at', { ascending: false });
 
           if (error) {
-            console.error('Erro ao carregar orders:', error);
+            console.error('❌ [SYNC] Erro ao carregar orders:', error);
             throw error;
           }
 
           if (data && data.length > 0) {
+            console.log(`🔄 [SYNC] Sincronizando ${data.length} pedidos do Supabase`);
+            
             // Buscar também os itens de cada pedido
             const ordersWithItems = await Promise.all(
               data.map(async (row: any) => {
-                const { data: items } = await supabase.from('order_items')
+                console.log(`📦 [SYNC] Carregando items para ${row.id}...`);
+                const { data: items, error: itemsError } = await supabase.from('order_items')
                   .select('*')
                   .eq('order_id', row.id);
+                  
+                if (itemsError) {
+                  console.warn(`⚠️ [SYNC] Erro ao carregar items para ${row.id}:`, itemsError);
+                } else {
+                  console.log(`✅ [SYNC] Carregados ${items?.length || 0} items para ${row.id}`);
+                }
 
                 // Parse createdAt - manter o ISO string original do banco
                 // A conversão de horário já é feita implicitamente pelo JavaScript
@@ -611,7 +672,6 @@ export const useOrdersStore = create<OrdersStore>()(
                   reference: '',
                 };
                 
-                // Construir objeto de pedido com TODOS os dados do banco
                 const syncedOrder: Order = {
                   id: row.id,
                   customer: {
@@ -622,13 +682,91 @@ export const useOrdersStore = create<OrdersStore>()(
                   deliveryType: 'delivery' as const,
                   deliveryFee: row.delivery_fee,
                   paymentMethod: paymentMethodFromMetadata as any,
-                  items: items?.map((item: any) => ({
-                    id: item.id || `item-${Date.now()}-${Math.random()}`,
-                    product: { id: item.product_id, name: item.product_name } as any,
-                    quantity: item.quantity,
-                    size: item.size,
-                    totalPrice: item.total_price,
-                  })) || [],
+                  items: items?.map((item: any) => {
+                    // 🔧 PARSER ROBUSTO: Extrair dados do item_data (JSONB do banco)
+                    let itemData: any = {};
+                    
+                    try {
+                      if (item.item_data) {
+                        // item_data pode vir como string ou já como objeto (depende da BD)
+                        if (typeof item.item_data === 'string') {
+                          itemData = JSON.parse(item.item_data);
+                        } else if (typeof item.item_data === 'object') {
+                          itemData = item.item_data;
+                        }
+                      }
+                    } catch (parseError) {
+                      console.warn(`⚠️ [SYNC] Erro ao parsear item_data para ${item.product_name}:`, parseError);
+                      itemData = {}; // Continuar com objeto vazio
+                    }
+
+                    // ✅ INTELIGENTE: Reconstruir item com TODOS os dados, com fallbacks
+                    const reconstructedItem = {
+                      id: item.id || `item-${Date.now()}`,
+                      product: { 
+                        id: item.product_id || 'unknown', 
+                        name: item.product_name || 'Produto desconhecido' 
+                      } as any,
+                      quantity: Math.max(item.quantity || 1, 1),
+                      size: item.size || 'grande',
+                      totalPrice: Number(item.total_price) || 0,
+                      
+                      // Pizza info (meia-meia ou inteira)
+                      isHalfHalf: itemData.pizzaType === 'meia-meia' ? true : false,
+                      secondHalf: itemData.sabor2 ? { 
+                        id: 'half-2',
+                        name: String(itemData.sabor2) 
+                      } as any : undefined,
+                      
+                      // Acompanhamentos
+                      border: itemData.border ? { 
+                        id: 'border',
+                        name: String(itemData.border) 
+                      } as any : undefined,
+                      drink: itemData.drink ? { 
+                        id: 'drink',
+                        name: String(itemData.drink) 
+                      } as any : undefined,
+                      
+                      // Extras
+                      extras: Array.isArray(itemData.extras) 
+                        ? itemData.extras
+                            .filter((e: any) => e) // Remove nulos
+                            .map((e: any) => ({
+                              id: `extra-${String(e)}`,
+                              name: String(e)
+                            }))
+                        : [],
+                      
+                      // Ingredientes customizados
+                      customIngredients: Array.isArray(itemData.customIngredients)
+                        ? itemData.customIngredients.filter((i: any) => i).map((i: any) => String(i))
+                        : [],
+                      
+                      paidIngredients: Array.isArray(itemData.paidIngredients)
+                        ? itemData.paidIngredients.filter((i: any) => i).map((i: any) => String(i))
+                        : [],
+                      
+                      // Combos
+                      comboPizzasData: Array.isArray(itemData.comboPizzas) 
+                        ? itemData.comboPizzas 
+                        : [],
+                      
+                      // Observações
+                      notes: itemData.notes || undefined,
+                    };
+                    
+                    console.log(`✅ [SYNC-ITEM] "${item.product_name}" reconstruído com sucesso:`, {
+                      quantity: reconstructedItem.quantity,
+                      size: reconstructedItem.size,
+                      isHalfHalf: reconstructedItem.isHalfHalf,
+                      hasExtras: reconstructedItem.extras.length,
+                      drinkName: reconstructedItem.drink?.name,
+                      borderName: reconstructedItem.border?.name,
+                    });
+                    
+                    return reconstructedItem;
+                  }) || [],
                   subtotal: row.total,
                   total: row.total,
                   pointsDiscount: row.points_discount || 0,
@@ -654,10 +792,18 @@ export const useOrdersStore = create<OrdersStore>()(
             set(() => ({
               orders: ordersWithItems as Order[],
             }));
-            console.log(`✅ ${ordersWithItems.length} pedidos sincronizados com itens`);
+            
+            // 📊 Log final bastante detalhado
+            const totalItems = ordersWithItems.reduce((sum, order) => sum + (order.items?.length || 0), 0);
+            console.log(`✅ [SYNC] SINCRONIZAÇÃO COMPLETA: ${ordersWithItems.length} pedidos, ${totalItems} items`);
+            ordersWithItems.slice(0, 3).forEach(o => {
+              console.log(`   📦 ${o.id}: ${o.items?.length || 0} items`);
+            });
+          } else {
+            console.warn('⚠️ [SYNC] Nenhum pedido retornado do banco');
           }
         } catch (error) {
-          console.error('Erro ao sincronizar pedidos do Supabase:', error);
+          console.error('❌ [SYNC] Erro ao sincronizar pedidos do Supabase:', error);
         }
       },
 
