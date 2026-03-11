@@ -653,7 +653,7 @@ export const useOrdersStore = create<OrdersStore>()(
                       // ✅ Recuperar dados complexos do item_data JSONB (com type casting)
                       isHalfHalf: itemData.pizzaType === 'meia-meia' || false,
                       secondHalf: itemData.sabor2 ? ({ name: itemData.sabor2 } as any) : undefined,
-                      border: itemData.border && itemData.border !== 'Sem borda' ? ({ name: itemData.border } as any) : undefined,
+                      border: itemData.borda && itemData.borda !== 'Sem borda' ? ({ name: itemData.borda } as any) : undefined,
                       drink: itemData.drink && itemData.drink !== 'Sem bebida' ? ({ name: itemData.drink } as any) : undefined,
                       extras: (itemData.extras?.map((name: string) => ({ name } as any)) || []),
                       customIngredients: itemData.customIngredients || [],
