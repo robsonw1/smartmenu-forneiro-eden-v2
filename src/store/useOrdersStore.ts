@@ -261,25 +261,25 @@ export const useOrdersStore = create<OrdersStore>()(
           }
 
           // Salvar itens do pedido - Usar apenas campos que existem na tabela order_items
-          const orderItems = newOrder.items.map((item, index) => ({
-            id: Date.now() + index, // Gerar ID único numérico para cada item
+          // ✅ RESTAURADO da V6: Estrutura simples que funcionava sem o id problemático
+          const orderItems = newOrder.items.map((item) => ({
             order_id: newOrder.id,
             product_id: item.product.id,
             product_name: item.product.name,
             quantity: item.quantity,
-            size: item.size || null,
+            size: item.size,
             total_price: item.totalPrice,
-            // Armazenar TODOS os dados do item em item_data (JSONB)
+            // Armazenar TODOS os dados do item em item_data (JSONB) - estrutura V6 comprovada
             item_data: JSON.stringify({
-              unitPrice: item.quantity > 0 ? item.totalPrice / item.quantity : 0,
-              isHalfHalf: item.isHalfHalf || false,
-              secondHalf: item.secondHalf?.name || null,
-              extras: item.extras?.map(e => ({ id: e.id, name: e.name })) || [],
-              drink: item.drink ? { id: item.drink.id, name: item.drink.name, isFree: item.isDrinkFree } : null,
-              border: item.border ? { id: item.border.id, name: item.border.name } : null,
-              comboFlavors: item.comboPizzasData || [],
+              pizzaType: item.isHalfHalf ? 'meia-meia' : 'inteira',
+              sabor1: item.product.name,
+              sabor2: item.isHalfHalf ? item.secondHalf?.name : undefined,
               customIngredients: item.customIngredients || [],
               paidIngredients: item.paidIngredients || [],
+              extras: item.extras?.map(e => e.name) || [],
+              drink: item.drink?.name || 'Sem bebida',
+              border: item.border?.name || 'Sem borda',
+              comboPizzas: item.comboPizzasData || [],
               notes: newOrder.observations || null,
             }),
           }));
@@ -624,7 +624,6 @@ export const useOrdersStore = create<OrdersStore>()(
                   reference: '',
                 };
                 
-                // Construir objeto de pedido com TODOS os dados do banco
                 const syncedOrder: Order = {
                   id: row.id,
                   customer: {
@@ -635,13 +634,34 @@ export const useOrdersStore = create<OrdersStore>()(
                   deliveryType: 'delivery' as const,
                   deliveryFee: row.delivery_fee,
                   paymentMethod: paymentMethodFromMetadata as any,
-                  items: items?.map((item: any) => ({
-                    id: item.id || `item-${Date.now()}-${Math.random()}`,
-                    product: { id: item.product_id, name: item.product_name } as any,
-                    quantity: item.quantity,
-                    size: item.size,
-                    totalPrice: item.total_price,
-                  })) || [],
+                  items: items?.map((item: any) => {
+                    // ✅ CRÍTICO: Parsear item_data JSONB para recuperar TODOS os detalhes do item
+                    let itemData: any = {};
+                    try {
+                      itemData = item.item_data ? JSON.parse(item.item_data) : {};
+                    } catch (e) {
+                      console.warn('⚠️ Erro ao parsear item_data:', e);
+                      itemData = {};
+                    }
+                    
+                    return {
+                      id: item.id || `item-${Date.now()}-${Math.random()}`,
+                      product: { id: item.product_id, name: item.product_name } as any,
+                      quantity: item.quantity,
+                      size: item.size,
+                      totalPrice: item.total_price,
+                      // ✅ Recuperar dados complexos do item_data JSONB (com type casting)
+                      isHalfHalf: itemData.pizzaType === 'meia-meia' || false,
+                      secondHalf: itemData.sabor2 ? ({ name: itemData.sabor2 } as any) : undefined,
+                      border: itemData.border && itemData.border !== 'Sem borda' ? ({ name: itemData.border } as any) : undefined,
+                      drink: itemData.drink && itemData.drink !== 'Sem bebida' ? ({ name: itemData.drink } as any) : undefined,
+                      extras: (itemData.extras?.map((name: string) => ({ name } as any)) || []),
+                      customIngredients: itemData.customIngredients || [],
+                      paidIngredients: itemData.paidIngredients || [],
+                      comboPizzasData: itemData.comboPizzas || [],
+                      notes: itemData.notes,
+                    };
+                  }) || [],
                   subtotal: row.total,
                   total: row.total,
                   pointsDiscount: row.points_discount || 0,
