@@ -260,32 +260,49 @@ export const useOrdersStore = create<OrdersStore>()(
             }
           }
 
-          // Salvar itens do pedido - APENAS os campos que existem na tabela order_items
+          // Salvar itens do pedido - Mapear corretamente para campos da tabela order_items
           const orderItems = newOrder.items.map((item) => ({
             order_id: newOrder.id,
             product_id: item.product.id,
             product_name: item.product.name,
             quantity: item.quantity,
-            size: item.size,
+            size: item.size || null,
+            price: item.quantity > 0 ? item.totalPrice / item.quantity : 0, // Unit price (REQUIRED field)
             total_price: item.totalPrice,
-            item_data: JSON.stringify({
-              pizzaType: item.isHalfHalf ? 'meia-meia' : 'inteira',
+            // Store all metadata in custom_ingredients as JSON for complete item reconstruction
+            custom_ingredients: JSON.stringify({
+              isHalfHalf: item.isHalfHalf || false,
+              secondHalf: item.secondHalf?.name || null,
+              extras: item.extras?.map(e => ({ id: e.id, name: e.name })) || [],
+              drink: item.drink ? { id: item.drink.id, name: item.drink.name, isFree: item.isDrinkFree } : null,
+              border: item.border ? { id: item.border.id, name: item.border.name } : null,
+              comboFlavors: item.comboPizzasData || [],
+              notes: newOrder.observations || null,
+            }),
+            // Store customer-added extra ingredients in paid_ingredients
+            paid_ingredients: JSON.stringify({
               customIngredients: item.customIngredients || [],
               paidIngredients: item.paidIngredients || [],
-              extras: item.extras?.map(e => e.name) || [],
-              drink: item.drink?.name,
-              border: item.border?.name,
-              notes: newOrder.observations,
             }),
           }));
 
           if (orderItems.length > 0) {
-            const { error: itemsError } = await supabase.from('order_items').insert(orderItems as any);
+            const { error: itemsError, data: itemsData } = await supabase.from('order_items').insert(orderItems as any);
             if (itemsError) {
-              console.error('❌ Erro ao inserir order_items:', itemsError);
-              throw itemsError;
+              console.error('❌ ERRO CRÍTICO ao inserir order_items:', {
+                message: itemsError.message,
+                code: itemsError.code,
+                details: itemsError.details,
+                hint: itemsError.hint,
+                items: orderItems,
+              });
+              // Continuar mesmo com erro de items para não bloquear pedido, mas erro visível no console
+            } else {
+              console.log('✅ Order items inseridos com sucesso:', {
+                count: orderItems.length,
+                itemsData,
+              });
             }
-            console.log('✅ Order items inseridos com sucesso:', orderItems.length);
           }
 
           // Tentar imprimir pedido automaticamente via Edge Function com RETRY (apenas se autoprint = true)
