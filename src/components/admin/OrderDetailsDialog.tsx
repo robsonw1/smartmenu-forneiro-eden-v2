@@ -455,98 +455,115 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
                 return (
                   <div
                     key={index}
-                    className="border-l-4 border-blue-500 pl-3 py-2 bg-blue-50 dark:bg-blue-950/30 rounded"
+                    className="border-l-4 border-blue-500 pl-4 py-3 bg-blue-50 dark:bg-blue-950/30 rounded-md"
                   >
-                    {/* Item Header */}
-                    <p className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                      Item {index + 1} - {item.quantity}x {item.product?.name}
-                      {item.size && ` (${item.size === 'broto' ? 'Broto' : 'Grande'})`}
+                    {/* Item Header - Quantidade x Produto x Tamanho */}
+                    <p className="font-bold text-blue-900 dark:text-blue-100 mb-3 text-base">
+                      ✅ Item {index + 1} - {item.quantity}x {item.product?.name}
+                      {item.size === 'broto' && ` (Broto)`}
+                      {item.size === 'grande' && ` (Grande)`}
                     </p>
                     
-                    {/* Item Details */}
-                    <div className="space-y-1 text-sm ml-2">
-                      {/* Pizza Type (Meia Meia ou Inteira) */}
+                    {/* Item Details Grid */}
+                    <div className="space-y-2 text-sm ml-1">
+                      {/* Pizza Type */}
                       {item.isHalfHalf && (
-                        <p className="text-muted-foreground">
-                          <span className="font-medium">Tipo:</span> Meia Meia
-                        </p>
+                        <div className="text-muted-foreground">
+                          <span className="font-semibold text-blue-900 dark:text-blue-100">Tipo de Pizza:</span> 
+                          <span className="ml-2">🥪 Meia Meia</span>
+                        </div>
                       )}
                       
-                      {/* Sabores (para pizzas meia-meia) */}
+                      {/* Single Pizza Flavors (Meia Meia para pizzas simples) */}
                       {item.isHalfHalf && item.product?.name && (
-                        <p className="text-muted-foreground">
-                          <span className="font-medium">Sabor 1:</span> {item.product.name}
-                        </p>
+                        <div className="text-muted-foreground">
+                          <span className="font-semibold text-blue-900 dark:text-blue-100">Sabor 1:</span>
+                          <span className="ml-2">{item.product.name}</span>
+                        </div>
                       )}
                       {item.isHalfHalf && item.secondHalf && (
-                        <p className="text-muted-foreground">
-                          <span className="font-medium">Sabor 2:</span> {extractName(item.secondHalf)}
-                        </p>
+                        <div className="text-muted-foreground">
+                          <span className="font-semibold text-blue-900 dark:text-blue-100">Sabor 2:</span>
+                          <span className="ml-2">{extractName(item.secondHalf)}</span>
+                        </div>
                       )}
                       
-                      {/* Combo Pizzas (se houver) */}
+                      {/* Combo Pizzas Details */}
                       {item.comboPizzasData && item.comboPizzasData.length > 0 && (
-                        <div className="mt-2">
-                          <p className="font-medium text-muted-foreground">Pizzas do Combo:</p>
-                          <div className="ml-2 space-y-1">
+                        <div className="bg-white dark:bg-blue-900/50 p-2 rounded mt-2">
+                          <p className="font-semibold text-blue-900 dark:text-blue-100 mb-2">🍕 Pizzas do Combo:</p>
+                          <div className="ml-3 space-y-2">
                             {sanitizeComboData(item.comboPizzasData).map((pizza: any, pizzaIndex: number) => (
-                              <p key={pizzaIndex} className="text-muted-foreground text-xs">
-                                <span className="font-medium">Pizza {pizzaIndex + 1}:</span> {String(pizza.sabor1)}
-                                {pizza.sabor2 && ` / ${String(pizza.sabor2)}`}
-                                {pizza.type === 'meia-meia' && ' (Meia Meia)'}
-                              </p>
+                              <div key={pizzaIndex} className="text-muted-foreground text-xs">
+                                <span className="font-medium">Pizza {pizzaIndex + 1}:</span> 
+                                {pizza.type === 'meia-meia' ? (
+                                  <span>🥪 {String(pizza.sabor1)} / {String(pizza.sabor2)}</span>
+                                ) : (
+                                  <span>{String(pizza.sabor1)}</span>
+                                )}
+                              </div>
                             ))}
                           </div>
                         </div>
                       )}
                       
-                      {/* Borda */}
-                      {item.border && (
-                        <p className="text-muted-foreground">
-                          <span className="font-medium">Borda:</span> {extractName(item.border)}
-                        </p>
+                      {/* Toppings: Border, Drink */}
+                      <div className="border-t border-blue-200 dark:border-blue-800 pt-2 mt-2">
+                        {item.border && (
+                          <div className="text-muted-foreground">
+                            <span className="font-semibold text-blue-900 dark:text-blue-100">Borda:</span>
+                            <span className="ml-2">{extractName(item.border)}</span>
+                          </div>
+                        )}
+                        
+                        {item.drink && (
+                          <div className="text-muted-foreground">
+                            <span className="font-semibold text-blue-900 dark:text-blue-100">Bebida:</span>
+                            <span className="ml-2">{extractName(item.drink)}</span>
+                            {item.isDrinkFree && <span className="ml-1 text-green-600 font-medium">(Grátis)</span>}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Add-ons: Extras, Ingredients */}
+                      {(item.extras?.length || item.customIngredients?.length || item.paidIngredients?.length) > 0 && (
+                        <div className="border-t border-blue-200 dark:border-blue-800 pt-2 mt-2">
+                          {item.extras && item.extras.length > 0 && (
+                            <div className="text-muted-foreground">
+                              <span className="font-semibold text-blue-900 dark:text-blue-100">Adicionais:</span>
+                              <span className="ml-2">{item.extras.map(e => extractName(e) || String(e)).join(', ')}</span>
+                            </div>
+                          )}
+                          
+                          {item.customIngredients && item.customIngredients.length > 0 && (
+                            <div className="text-muted-foreground">
+                              <span className="font-semibold text-green-600">Ingredientes Grátis:</span>
+                              <span className="ml-2 text-green-700">{item.customIngredients.map(ing => String(ing)).join(', ')}</span>
+                            </div>
+                          )}
+                          
+                          {item.paidIngredients && item.paidIngredients.length > 0 && (
+                            <div className="text-muted-foreground">
+                              <span className="font-semibold text-blue-900 dark:text-blue-100">Ingredientes Extras:</span>
+                              <span className="ml-2">{item.paidIngredients.map(ing => String(ing)).join(', ')}</span>
+                            </div>
+                          )}
+                        </div>
                       )}
                       
-                      {/* Bebida */}
-                      {item.drink && (
-                        <p className="text-muted-foreground">
-                          <span className="font-medium">Bebida:</span> {extractName(item.drink)}
-                        </p>
-                      )}
-                      
-                      {/* Adicionais */}
-                      {item.extras && item.extras.length > 0 && (
-                        <p className="text-muted-foreground">
-                          <span className="font-medium">Adicionais:</span> {item.extras.map(e => extractName(e) || String(e)).join(', ')}
-                        </p>
-                      )}
-                      
-                      {/* Ingredientes Customizados (Grátis) */}
-                      {item.customIngredients && item.customIngredients.length > 0 && (
-                        <p className="text-muted-foreground">
-                          <span className="font-medium">Ingredientes Grátis:</span> {item.customIngredients.map(ing => String(ing)).join(', ')}
-                        </p>
-                      )}
-                      
-                      {/* Ingredientes Pagos */}
-                      {item.paidIngredients && item.paidIngredients.length > 0 && (
-                        <p className="text-muted-foreground">
-                          <span className="font-medium">Ingredientes Extras:</span> {item.paidIngredients.map(ing => String(ing)).join(', ')}
-                        </p>
-                      )}
-                      
-                      {/* Observações */}
+                      {/* Notes */}
                       {item.notes && (
-                        <p className="text-muted-foreground italic">
-                          <span className="font-medium">Obs:</span> {item.notes}
-                        </p>
+                        <div className="border-t border-blue-200 dark:border-blue-800 pt-2 mt-2 italic text-muted-foreground">
+                          <span className="font-semibold text-blue-900 dark:text-blue-100">📝 Observações:</span>
+                          <p className="ml-2 mt-1">{item.notes}</p>
+                        </div>
                       )}
                     </div>
                     
-                    {/* Preço */}
-                    <div className="flex justify-between items-center mt-2 pt-2 border-t border-blue-200 dark:border-blue-800">
-                      <span className="text-muted-foreground text-xs">Subtotal do Item</span>
-                      <span className="font-semibold text-blue-900 dark:text-blue-100">{formatPrice(item.totalPrice)}</span>
+                    {/* Item Subtotal */}
+                    <div className="flex justify-between items-center mt-3 pt-3 border-t-2 border-blue-300 dark:border-blue-800">
+                      <span className="text-muted-foreground font-medium">Subtotal do Item:</span>
+                      <span className="font-bold text-lg text-blue-900 dark:text-blue-100">{formatPrice(item.totalPrice)}</span>
                     </div>
                   </div>
                 );
