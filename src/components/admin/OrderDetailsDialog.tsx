@@ -430,37 +430,106 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
 
           {/* Items */}
           <div>
-            <h4 className="font-semibold mb-2">Itens do Pedido</h4>
-            <div className="space-y-2">
+            <h4 className="font-semibold mb-3">Itens do Pedido</h4>
+            <div className="space-y-4">
               {(localOrder.items ?? []).map((item, index) => {
                 if (!item || !item.product) return null;
                 return (
                   <div
                     key={index}
-                    className="flex justify-between items-start p-2 bg-secondary/50 rounded-lg text-sm"
+                    className="border-l-4 border-blue-500 pl-3 py-2 bg-blue-50 dark:bg-blue-950/30 rounded"
                   >
-                    <div>
-                      <p className="font-medium">
-                        {item.quantity}x {item.product?.name}
-                        {item.size && ` (${item.size === 'broto' ? 'Broto' : 'Grande'})`}
-                      </p>
+                    {/* Item Header */}
+                    <p className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                      Item {index + 1} - {item.quantity}x {item.product?.name}
+                      {item.size && ` (${item.size === 'broto' ? 'Broto' : 'Grande'})`}
+                    </p>
+                    
+                    {/* Item Details */}
+                    <div className="space-y-1 text-sm ml-2">
+                      {/* Pizza Type (Meia Meia ou Inteira) */}
+                      {item.isHalfHalf && (
+                        <p className="text-muted-foreground">
+                          <span className="font-medium">Tipo:</span> Meia Meia
+                        </p>
+                      )}
+                      
+                      {/* Sabores (para pizzas meia-meia) */}
+                      {item.isHalfHalf && item.product?.name && (
+                        <p className="text-muted-foreground">
+                          <span className="font-medium">Sabor 1:</span> {item.product.name}
+                        </p>
+                      )}
                       {item.isHalfHalf && item.secondHalf && (
                         <p className="text-muted-foreground">
-                          Meia: {item.secondHalf?.name}
+                          <span className="font-medium">Sabor 2:</span> {item.secondHalf?.name}
                         </p>
                       )}
+                      
+                      {/* Combo Pizzas (se houver) */}
+                      {item.comboPizzasData && item.comboPizzasData.length > 0 && (
+                        <div className="mt-2">
+                          <p className="font-medium text-muted-foreground">Pizzas do Combo:</p>
+                          <div className="ml-2 space-y-1">
+                            {item.comboPizzasData.map((pizza: any, pizzaIndex: number) => (
+                              <p key={pizzaIndex} className="text-muted-foreground text-xs">
+                                <span className="font-medium">Pizza {pizzaIndex + 1}:</span> {pizza.sabor1}
+                                {pizza.sabor2 && ` / ${pizza.sabor2}`}
+                                {pizza.type === 'meia-meia' && ' (Meia Meia)'}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Borda */}
                       {item.border && (
                         <p className="text-muted-foreground">
-                          Borda: {item.border?.name}
+                          <span className="font-medium">Borda:</span> {item.border?.name}
                         </p>
                       )}
+                      
+                      {/* Bebida */}
+                      {item.drink && (
+                        <p className="text-muted-foreground">
+                          <span className="font-medium">Bebida:</span> {item.drink?.name}
+                        </p>
+                      )}
+                      
+                      {/* Adicionais */}
+                      {item.extras && item.extras.length > 0 && (
+                        <p className="text-muted-foreground">
+                          <span className="font-medium">Adicionais:</span> {item.extras.map(e => e.name).join(', ')}
+                        </p>
+                      )}
+                      
+                      {/* Ingredientes Customizados (Grátis) */}
+                      {item.customIngredients && item.customIngredients.length > 0 && (
+                        <p className="text-muted-foreground">
+                          <span className="font-medium">Ingredientes Grátis:</span> {item.customIngredients.join(', ')}
+                        </p>
+                      )}
+                      
+                      {/* Ingredientes Pagos */}
+                      {item.paidIngredients && item.paidIngredients.length > 0 && (
+                        <p className="text-muted-foreground">
+                          <span className="font-medium">Ingredientes Extras:</span> {item.paidIngredients.join(', ')}
+                        </p>
+                      )}
+                      
+                      {/* Observações */}
                       {item.notes && (
                         <p className="text-muted-foreground italic">
-                          Obs: {item.notes}
+                          <span className="font-medium">Obs:</span> {item.notes}
                         </p>
                       )}
                     </div>
-                    <span className="font-medium">{formatPrice(item.totalPrice)}</span>
+                    
+                    {/* Preço */}
+                    <div className="flex justify-between items-center mt-2 pt-2 border-t border-blue-200 dark:border-blue-800">
+                      <span className="text-muted-foreground text-xs">Subtotal do Item</span>
+                      <span className="font-semibold text-blue-900 dark:text-blue-100">{formatPrice(item.totalPrice)}</span>
+                    </div>
                   </div>
                 );
               })}
