@@ -200,7 +200,7 @@ export function CustomerLoginModal({
             <DialogTitle>Minha Conta</DialogTitle>
           </div>
           <DialogDescription className="text-center pt-2">
-            Acesse sua conta ou crie uma nova
+           Acesse sua conta ou crie uma nova e GANHE cashback a cada compra!
           </DialogDescription>
         </DialogHeader>
 
