@@ -295,8 +295,18 @@ export const useOrdersStore = create<OrdersStore>()(
               drink: item.drink ? (typeof item.drink === 'string' ? item.drink : item.drink.name) : null,
               border: item.border ? (typeof item.border === 'string' ? item.border : item.border.name) : null,
               
-              // Combos
-              comboPizzas: Array.isArray(item.comboPizzasData) ? item.comboPizzasData : [],
+              // Combos - Mapear corretamente pizzaName e secondHalfName para halfOne/halfTwo
+              comboPizzas: Array.isArray(item.comboPizzasData) 
+                ? item.comboPizzasData.map((pizza: any) => ({
+                    pizzaId: pizza.pizzaId || `pizza-${pizza.pizzaNumber}`,
+                    pizzaName: pizza.pizzaName || pizza.name,
+                    pizzaNumber: pizza.pizzaNumber,
+                    isHalfHalf: pizza.isHalfHalf || false,
+                    // ­ƒöÆ CRITICO: Para combos meia-meia, pizzaName é halfOne e secondHalfName é halfTwo
+                    halfOne: pizza.isHalfHalf ? (pizza.pizzaName || pizza.name) : undefined,
+                    halfTwo: pizza.isHalfHalf ? (pizza.secondHalfName || null) : undefined,
+                  }))
+                : [],
               
               // Observa├º├Áes
               notes: newOrder.observations || null,
