@@ -24,6 +24,7 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
 import { MessageCircle } from 'lucide-react';
+import { OrderItemDetails } from './OrderItemDetailsRenderer';
 
 type OrderStatus = 'pending' | 'agendado' | 'confirmed' | 'preparing' | 'delivering' | 'delivered' | 'cancelled';
 
@@ -57,24 +58,6 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
   const updateOrderStatus = useOrdersStore((s) => s.updateOrderStatus);
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
   const [localOrder, setLocalOrder] = useState<Order | null>(order);
-
-  // 🛡️ Defensive: Ensure combo pizzas data is always valid
-  const sanitizeComboData = (comboPizzas: any[]): any[] => {
-    if (!Array.isArray(comboPizzas)) return [];
-    return comboPizzas.map((pizza: any) => ({
-      sabor1: pizza.sabor1 ? String(pizza.sabor1) : 'Desconhecido',
-      sabor2: pizza.sabor2 ? String(pizza.sabor2) : undefined,
-      type: pizza.type || 'inteira',
-    }));
-  };
-
-  // 🛡️ Defensive: Extract name safely from any value (string or object)
-  const extractName = (value: any): string | undefined => {
-    if (!value) return undefined;
-    if (typeof value === 'string') return value;
-    if (typeof value === 'object' && value.name) return String(value.name);
-    return undefined;
-  };
 
   // 🔴 REALTIME: Monitorar mudanças no status da ordem para refrescar UI
   useEffect(() => {
@@ -448,45 +431,26 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
 
           {/* Items */}
           <div>
-            <h4 className="font-semibold mb-2">Itens do Pedido</h4>
-            <div className="space-y-2">
+            <h4 className="font-semibold mb-3">Itens do Pedido</h4>
+            <div className="space-y-3">
               {(localOrder.items ?? []).map((item, index) => {
                 if (!item || !item.product) return null;
+                
+                // Converter item para o formato esperado pelo componente
+                const itemProps = {
+                  productName: item.product?.name || 'Produto desconhecido',
+                  quantity: item.quantity || 1,
+                  size: item.size || 'grande',
+                  totalPrice: item.totalPrice,
+                  itemData: item.itemData || null,
+                };
+                
                 return (
-                  <div key={index} className="flex justify-between items-start p-2 bg-secondary/50 rounded-lg text-sm">
-                    <div>
-                      <p className="font-medium">
-                        {item.quantity}x {item.product?.name}
-                        {item.size && ` (${item.size === 'broto' ? 'Broto' : 'Grande'})`}
-                      </p>
-                      {item.isHalfHalf && item.secondHalf && (
-                        <p className="text-muted-foreground">
-                          Meia: {extractName(item.secondHalf)}
-                        </p>
-                      )}
-                      {item.border && (
-                        <p className="text-muted-foreground">
-                          Borda: {extractName(item.border)}
-                        </p>
-                      )}
-                      {item.drink && (
-                        <p className="text-muted-foreground">
-                          Bebida: {extractName(item.drink)}
-                        </p>
-                      )}
-                      {item.extras && item.extras.length > 0 && (
-                        <p className="text-muted-foreground text-xs">
-                          Adicionais: {item.extras.map(e => extractName(e) || String(e)).join(', ')}
-                        </p>
-                      )}
-                      {item.notes && (
-                        <p className="text-muted-foreground text-xs italic">
-                          Obs: {item.notes}
-                        </p>
-                      )}
-                    </div>
-                    <span className="font-medium">{formatPrice(item.totalPrice)}</span>
-                  </div>
+                  <OrderItemDetails
+                    key={index}
+                    {...itemProps}
+                    format="dashboard"
+                  />
                 );
               })}
             </div>
