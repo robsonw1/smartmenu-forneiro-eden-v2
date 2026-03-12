@@ -148,7 +148,6 @@ export function SchedulingCheckoutModal() {
 
   const validateAndUseCoupon = useCouponManagementStore((s) => s.validateAndUseCoupon);
   const markCouponAsUsed = useCouponManagementStore((s) => s.markCouponAsUsed);
-  const findOrCreateCustomer = useLoyaltyStore((s) => s.findOrCreateCustomer);
   const addPointsFromPurchase = useLoyaltyStore((s) => s.addPointsFromPurchase);
   const refreshCurrentCustomer = useLoyaltyStore((s) => s.refreshCurrentCustomer);
   const saveDefaultAddress = useLoyaltyStore((s) => s.saveDefaultAddress);
@@ -1171,29 +1170,14 @@ export function SchedulingCheckoutModal() {
     }
 
     try {
-      // 🔒 CRÍTICO: SEMPRE tentar encontrar/criar cliente com email fornecido no checkout
-      // Seja logado ou anônimo, se tem email, processa pontos
-      let loyaltyCustomer = null;
-      const emailForLoyalty = isRemembered && currentCustomer?.email 
+      // � Armazenar email para referência (sem criar/logar automaticamente)
+      const emailForOrder = isRemembered && currentCustomer?.email 
         ? currentCustomer.email 
-        : customer.email; // Usar email do formulário se não logado
+        : customer.email;
       
-      if (emailForLoyalty) {
-        console.log('🔍 [LOYALTY] Buscando/criando cliente com email:', emailForLoyalty);
-        loyaltyCustomer = await findOrCreateCustomer(emailForLoyalty);
-        setLastOrderEmail(emailForLoyalty);
-        
-        if (loyaltyCustomer) {
-          console.log('✅ [LOYALTY] Cliente encontrado/criado:', {
-            id: loyaltyCustomer.id,
-            email: loyaltyCustomer.email,
-            totalPoints: loyaltyCustomer.totalPoints
-          });
-        } else {
-          console.warn('⚠️ [LOYALTY] Falha ao encontrar/criar cliente com email:', emailForLoyalty);
-        }
-      } else {
-        console.warn('⚠️ [LOYALTY] Nenhum email encontrado para processar pontos');
+      if (emailForOrder) {
+        setLastOrderEmail(emailForOrder);
+        console.log('📧 [ORDER] Email para referência:', emailForOrder);
       }
       
       // Save address as default if requested and customer exists
@@ -1293,7 +1277,6 @@ export function SchedulingCheckoutModal() {
           setLastCouponDiscount(couponDiscountAmount);
           setLastAppliedCoupon(appliedCoupon);
           setLastFinalTotal(finalTotal);
-          setLastLoyaltyCustomer(loyaltyCustomer);
           
           // ❌ NÃO cria pedido aqui!
           // ❌ NÃO resgate pontos aqui!
@@ -1320,7 +1303,6 @@ export function SchedulingCheckoutModal() {
         setLastCouponDiscount(couponDiscountAmount);
         setLastAppliedCoupon(appliedCoupon);
         setLastFinalTotal(finalTotal);
-        setLastLoyaltyCustomer(loyaltyCustomer);
         setLastOrderPayload(orderPayload);
         
         setStep('confirmation');
