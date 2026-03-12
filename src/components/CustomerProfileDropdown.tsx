@@ -14,6 +14,7 @@ import { CustomerOrdersDrawer } from '@/components/CustomerOrdersDrawer';
 import { DeliveryAddressDialog } from '@/components/DeliveryAddressDialog';
 import { CustomerOnboardingTutorial } from '@/components/CustomerOnboardingTutorial';
 import { useCustomerOnboarding } from '@/hooks/use-customer-onboarding';
+import { useProfileFirstAccess } from '@/hooks/use-profile-first-access';
 
 export function CustomerProfileDropdown() {
   const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
@@ -35,6 +36,12 @@ export function CustomerProfileDropdown() {
     openTutorial,
     isLoading: isOnboardingLoading,
   } = useCustomerOnboarding();
+
+  // Hook para rastrear primeiro acesso ao perfil
+  const {
+    showPulseNotification,
+    markProfileAsViewed,
+  } = useProfileFirstAccess();
 
   if (!currentCustomer) {
     return null;
@@ -82,15 +89,32 @@ export function CustomerProfileDropdown() {
 
   return (
     <>
-      <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <Popover open={isOpen} onOpenChange={(open) => {
+        setIsOpen(open);
+        // Marcar como visualizado quando abrir pela primeira vez
+        if (open && showPulseNotification) {
+          markProfileAsViewed();
+        }
+      }}>
         <PopoverTrigger asChild>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-colors relative cursor-pointer"
+            className={`flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-colors relative cursor-pointer ${
+              showPulseNotification ? 'animate-pulse' : ''
+            }`}
             title={currentCustomer.name}
           >
             {getInitials(currentCustomer.name || 'C')}
+            
+            {/* Badge vermelho - primeira vez */}
+            {showPulseNotification && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-primary-foreground shadow-lg"
+              />
+            )}
           </motion.button>
         </PopoverTrigger>
 
