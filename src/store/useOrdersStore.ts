@@ -302,9 +302,11 @@ export const useOrdersStore = create<OrdersStore>()(
                     pizzaName: pizza.pizzaName || pizza.name,
                     pizzaNumber: pizza.pizzaNumber,
                     isHalfHalf: pizza.isHalfHalf || false,
-                    // ­ƒöÆ CRITICO: Para combos meia-meia, pizzaName é halfOne e secondHalfName é halfTwo
-                    halfOne: pizza.isHalfHalf ? (pizza.pizzaName || pizza.name) : undefined,
-                    halfTwo: pizza.isHalfHalf ? (pizza.secondHalfName || null) : undefined,
+                    // ✨ SEMPRE incluir halfOne/halfTwo para consistência
+                    // Para meia-meia: pizzaName -> halfOne, secondHalfName -> halfTwo
+                    // Para inteira: pizzaName -> halfOne, null -> halfTwo
+                    halfOne: pizza.pizzaName || pizza.name || undefined,
+                    halfTwo: pizza.isHalfHalf ? (pizza.secondHalfName || null) : null,
                   }))
                 : [],
               
@@ -336,6 +338,10 @@ export const useOrdersStore = create<OrdersStore>()(
 
           if (orderItems.length > 0) {
             console.log(`­ƒÆ¥ [SAVEORDER] Tentando inserir ${orderItems.length} items na tabela order_items...`);
+            console.log('📋 [DEBUG] Detalhes dos comboPizzas sendo salvos:', orderItems.map(item => ({
+              product: item.product_name,
+              comboPizzas: (item.item_data as any).comboPizzas
+            })));
             
             const { error: itemsError, data: itemsData } = await supabase
               .from('order_items')
@@ -798,7 +804,7 @@ export const useOrdersStore = create<OrdersStore>()(
                         ? itemData.comboPizzas 
                         : [],
                       
-                      // Observa├º├Áes
+                      // Observações
                       notes: itemData.notes || undefined,
                       
                       // ✨ JSONB COMPLETO: Todos os detalhes do item para renderiza├º├úo
