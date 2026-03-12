@@ -7,7 +7,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Progress } from '@/components/ui/progress';
-import { LogOut, Sparkles, TrendingUp, Gift, Clock, MapPin, Package, HelpCircle } from 'lucide-react';
+import { LogOut, Sparkles, Gift, Clock, MapPin, Package, HelpCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { CustomerHistoryDrawer } from '@/components/CustomerHistoryDrawer';
 import { CustomerOrdersDrawer } from '@/components/CustomerOrdersDrawer';
@@ -182,18 +182,18 @@ export function CustomerProfileDropdown() {
                 </div>
               </div>
 
-              {/* Total Gasto */}
-              <div className="flex items-center justify-between bg-secondary/50 rounded-lg p-3">
+              {/* Economizado com Pontos */}
+              <div className="flex items-center justify-between bg-gradient-to-r from-green-500/10 to-green-400/5 rounded-lg p-3 border border-green-500/20">
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium">Gasto</span>
+                  <Gift className="w-4 h-4 text-green-500" />
+                  <span className="text-sm font-medium">Economizado</span>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-sm">
-                    R$ {currentCustomer.totalSpent.toFixed(2)}
+                  <p className="font-bold text-sm text-green-600">
+                    R$ {pointsValue.toFixed(2)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {currentCustomer.totalPurchases} compras
+                    com seus {currentCustomer.totalPoints} pontos
                   </p>
                 </div>
               </div>
