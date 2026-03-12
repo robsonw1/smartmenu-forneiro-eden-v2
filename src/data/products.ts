@@ -48,6 +48,27 @@ export interface CartItem {
   paidIngredients?: string[]; // For Moda do Cliente (paid extras)
   notes?: string;
   totalPrice: number;
+  // 🎯 JSONB do banco com todos os detalhes do item (para renderização no dashboard/print)
+  itemData?: {
+    pizzaType?: 'inteira' | 'meia-meia';
+    sabor1?: string;
+    sabor2?: string | null;
+    halfOne?: string;
+    halfTwo?: string | null;
+    drink?: string | null;
+    border?: string | null;
+    extras?: string[];
+    customIngredients?: string[];
+    paidIngredients?: string[];
+    comboPizzas?: Array<{
+      pizzaId?: string;
+      pizzaName?: string;
+      isHalfHalf?: boolean;
+      halfOne?: string;
+      halfTwo?: string;
+    }>;
+    notes?: string | null;
+  };
 }
 
 export interface Neighborhood {
