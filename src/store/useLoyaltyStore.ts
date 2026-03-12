@@ -207,7 +207,9 @@ export const useLoyaltyStore = create<LoyaltyStore>((set, get) => ({
       // Recarregar dados do cliente
       const customer = await get().getCustomerByEmail(normalizedEmail);
       if (customer) {
-        set({ currentCustomer: customer, points: customer.totalPoints });
+        // ⚠️ NÃO faz login automático - apenas atualiza dados
+        // isRemembered permanece false para não-logados
+        set({ currentCustomer: customer, points: customer.totalPoints, isRemembered: false });
       }
 
       return true;
@@ -252,7 +254,9 @@ export const useLoyaltyStore = create<LoyaltyStore>((set, get) => ({
       // Recarregar dados do cliente
       const customer = await get().getCustomerByEmail(normalizedEmail);
       if (customer) {
-        set({ currentCustomer: customer, points: customer.totalPoints });
+        // ⚠️ NÃO faz login automático - apenas atualiza dados
+        // isRemembered permanece false para não-logados
+        set({ currentCustomer: customer, points: customer.totalPoints, isRemembered: false });
       }
 
       return true;
