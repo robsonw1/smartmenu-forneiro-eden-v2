@@ -76,45 +76,70 @@ export const renderDashboardItem = (props: OrderItemProps): React.ReactNode => {
       {/* Detalhes do Item */}
       {itemData && (
         <div className="space-y-3 border-t border-slate-300 pt-3">
-          {/* COMBO PIZZAS - Lista cada pizza claramente */}
+          {/* COMBO PIZZAS - Cada pizza com seu tipo claramente indicado */}
           {itemData.comboPizzas && itemData.comboPizzas.length > 0 && (
-            <div className="space-y-2">
-              <p className="font-semibold text-slate-900 text-sm">Pizzas:</p>
-              {itemData.comboPizzas.map((pizza, idx) => (
-                <div key={idx} className="ml-2 pb-2 border-b border-slate-200 last:border-0 last:pb-0">
-                  <p className="text-sm font-medium text-slate-800">
-                    Pizza {idx + 1}: {extractName(pizza.pizzaName)}
-                  </p>
-                  {pizza.isHalfHalf && (
-                    <p className="text-sm text-slate-600 ml-2">
-                      • Metade 1: {extractName(pizza.halfOne)}
+            <div className="space-y-4">
+              {itemData.comboPizzas.map((pizza, idx) => {
+                // Determinar tipo desta pizza específica
+                const pizzaType = pizza.isHalfHalf ? 'Meia-Meia' : 'Inteira';
+                
+                return (
+                  <div key={idx} className="pb-3 border-b border-slate-300 last:border-0 last:pb-0">
+                    {/* Título da pizza */}
+                    <p className="font-bold text-slate-900 mb-2">
+                      Pizza {idx + 1} - Tipo: {pizzaType}
                     </p>
-                  )}
-                  {pizza.isHalfHalf && (
-                    <p className="text-sm text-slate-600 ml-2">
-                      • Metade 2: {extractName(pizza.halfTwo)}
-                    </p>
-                  )}
-                </div>
-              ))}
+                    
+                    {/* Conteúdo da pizza */}
+                    {pizza.isHalfHalf ? (
+                      <>
+                        <p className="text-sm text-slate-700 ml-2">
+                          • Sabor 1: {extractName(pizza.halfOne)}
+                        </p>
+                        <p className="text-sm text-slate-700 ml-2">
+                          • Sabor 2: {extractName(pizza.halfTwo)}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-slate-700 ml-2">
+                        • Sabor: {extractName(pizza.pizzaName)}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
 
           {/* PIZZA SIMPLES (não combo) */}
           {itemData.sabor1 && !itemData.comboPizzas?.length && (
             <div className="space-y-1">
-              <p className="font-semibold text-slate-900 text-sm">Pizza:</p>
-              <p className="text-sm text-slate-700 ml-2">{extractName(itemData.sabor1)}</p>
-              {itemData.sabor2 && (
-                <p className="text-sm text-slate-700 ml-2">Metade 2: {extractName(itemData.sabor2)}</p>
+              {/* Detectar corretamente se é meia-meia ou inteira */}
+              {itemData.sabor2 ? (
+                <>
+                  <p className="font-bold text-slate-900 mb-2">Tipo: Meia-Meia</p>
+                  <p className="text-sm text-slate-700 ml-2">
+                    • Sabor 1: {extractName(itemData.sabor1)}
+                  </p>
+                  <p className="text-sm text-slate-700 ml-2">
+                    • Sabor 2: {extractName(itemData.sabor2)}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-bold text-slate-900 mb-2">Tipo: Inteira</p>
+                  <p className="text-sm text-slate-700 ml-2">
+                    • Sabor: {extractName(itemData.sabor1)}
+                  </p>
+                </>
               )}
             </div>
           )}
 
-          {/* MEIA-MEIA (halfOne/halfTwo) */}
-          {(itemData.halfOne || itemData.halfTwo) && !itemData.comboPizzas?.length && (
+          {/* MEIA-MEIA (halfOne/halfTwo) - fallback raro */}
+          {(itemData.halfOne || itemData.halfTwo) && !itemData.comboPizzas?.length && !itemData.sabor1 && (
             <div className="space-y-1">
-              <p className="font-semibold text-slate-900 text-sm">Pizza Meia-Meia:</p>
+              <p className="font-bold text-slate-900 mb-2">Tipo: Meia-Meia</p>
               <p className="text-sm text-slate-700 ml-2">
                 • {extractName(itemData.halfOne)}
               </p>
