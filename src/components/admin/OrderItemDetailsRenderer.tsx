@@ -83,6 +83,10 @@ export const renderDashboardItem = (props: OrderItemProps): React.ReactNode => {
                 // Determinar tipo desta pizza específica
                 const pizzaType = pizza.isHalfHalf ? 'Meia-Meia' : 'Inteira';
                 
+                // Fallback: se halfOne/halfTwo não existem, usar pizzaName
+                const sabor1 = pizza.halfOne || pizza.pizzaName || '-';
+                const sabor2 = pizza.halfTwo || null;
+                
                 return (
                   <div key={idx} className="pb-3 border-b border-slate-300 last:border-0 last:pb-0">
                     {/* Título da pizza */}
@@ -94,15 +98,15 @@ export const renderDashboardItem = (props: OrderItemProps): React.ReactNode => {
                     {pizza.isHalfHalf ? (
                       <>
                         <p className="text-sm text-slate-700 ml-2">
-                          • Sabor 1: {extractName(pizza.halfOne)}
+                          • Sabor 1: {extractName(sabor1)}
                         </p>
                         <p className="text-sm text-slate-700 ml-2">
-                          • Sabor 2: {extractName(pizza.halfTwo)}
+                          • Sabor 2: {extractName(sabor2)}
                         </p>
                       </>
                     ) : (
                       <p className="text-sm text-slate-700 ml-2">
-                        • Sabor: {extractName(pizza.pizzaName)}
+                        • Sabor: {extractName(sabor1)}
                       </p>
                     )}
                   </div>
