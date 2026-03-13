@@ -15,6 +15,8 @@ import { DeliveryAddressDialog } from '@/components/DeliveryAddressDialog';
 import { CustomerOnboardingTutorial } from '@/components/CustomerOnboardingTutorial';
 import { useCustomerOnboarding } from '@/hooks/use-customer-onboarding';
 import { useProfileFirstAccess } from '@/hooks/use-profile-first-access';
+import { useAddressNotification } from '@/hooks/use-address-notification';
+import { useOrdersNotification } from '@/hooks/use-orders-notification';
 
 export function CustomerProfileDropdown() {
   const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
@@ -42,6 +44,17 @@ export function CustomerProfileDropdown() {
     showPulseNotification,
     markProfileAsViewed,
   } = useProfileFirstAccess();
+
+  // Hook para rastrear notificação de endereço incompleto
+  const {
+    showAddressNotification,
+  } = useAddressNotification();
+
+  // Hook para rastrear notificação de pedidos
+  const {
+    showOrdersNotification,
+    markOrdersAsViewed,
+  } = useOrdersNotification();
 
   if (!currentCustomer) {
     return null;
@@ -76,6 +89,16 @@ export function CustomerProfileDropdown() {
   const handleLogout = async () => {
     await logout();
     setIsOpen(false);
+  };
+
+  const handleOrdersOpen = async () => {
+    setOrdersOpen(true);
+    // Marcar como visualizado quando abrir o drawer
+    await markOrdersAsViewed();
+  };
+
+  const handleAddressOpen = () => {
+    setAddressOpen(true);
   };
 
   const getInitials = (name: string) => {
@@ -203,23 +226,59 @@ export function CustomerProfileDropdown() {
             <div className="pt-2 border-t space-y-2">
               <Button
                 id="btn-meus-pedidos"
-                onClick={() => setOrdersOpen(true)}
+                onClick={handleOrdersOpen}
                 variant="outline"
                 size="sm"
-                className="w-full flex items-center justify-center gap-2"
+                className={`w-full flex items-center justify-center gap-2 relative ${
+                  showOrdersNotification ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' : ''
+                }`}
               >
-                <Package className="w-4 h-4" />
+                <div className="relative">
+                  <Package className="w-4 h-4" />
+                  {showOrdersNotification && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute -top-2 -right-2 w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse"
+                    />
+                  )}
+                </div>
                 Meus Pedidos
+                {showOrdersNotification && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse ml-auto"
+                  />
+                )}
               </Button>
               <Button
                 id="btn-meu-endereco"
-                onClick={() => setAddressOpen(true)}
+                onClick={handleAddressOpen}
                 variant="outline"
                 size="sm"
-                className="w-full flex items-center justify-center gap-2"
+                className={`w-full flex items-center justify-center gap-2 relative ${
+                  showAddressNotification ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : ''
+                }`}
               >
-                <MapPin className="w-4 h-4" />
+                <div className="relative">
+                  <MapPin className="w-4 h-4" />
+                  {showAddressNotification && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute -top-2 -right-2 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"
+                    />
+                  )}
+                </div>
                 Meu Endereço
+                {showAddressNotification && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse ml-auto"
+                  />
+                )}
               </Button>
               <Button
                 id="btn-historico"
