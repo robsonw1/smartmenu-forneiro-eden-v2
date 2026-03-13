@@ -250,7 +250,7 @@ export function PostCheckoutLoyaltyModal({
             <DialogHeader>
               <div className="flex items-center justify-center gap-2 mb-4">
                 <Gift className="w-8 h-8 text-primary" />
-                <DialogTitle>Minha Conta</DialogTitle>
+                <DialogTitle>GANHE PONTOS A CADA COMPRA!</DialogTitle>
               </div>
               <DialogDescription className="text-center pt-2">
                 Acesse sua conta ou crie uma nova e GANHE cashback a cada compra!
