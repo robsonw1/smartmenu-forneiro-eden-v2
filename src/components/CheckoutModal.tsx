@@ -264,6 +264,14 @@ export function CheckoutModal() {
     }
   }, [isCheckoutOpen, currentCustomer?.name, currentCustomer?.phone, currentCustomer?.email, isRemembered]);
 
+  // Pré-preencher CPF automaticamente quando cliente logado escolhe PIX
+  useEffect(() => {
+    if (paymentMethod === 'pix' && currentCustomer?.cpf && !customer.cpf) {
+      setCustomer({ cpf: formatCpf(currentCustomer.cpf) });
+      console.log('🔑 CPF preenchido automaticamente para PIX:', currentCustomer.cpf);
+    }
+  }, [paymentMethod, currentCustomer?.cpf, customer.cpf]);
+
   // Pré-preencher endereço salvo quando checkout abre
   useEffect(() => {
     if (isCheckoutOpen && currentCustomer?.street && !address.street) {
