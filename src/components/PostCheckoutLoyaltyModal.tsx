@@ -261,10 +261,10 @@ export function PostCheckoutLoyaltyModal({
             <DialogHeader>
               <div className="flex items-center justify-center gap-2 mb-4">
                 <Gift className="w-8 h-8 text-primary" />
-                <DialogTitle>Garanta Seus Bônus</DialogTitle>
+                <DialogTitle>GANHE PONTOS AGORA!</DialogTitle>
               </div>
               <DialogDescription className="text-center pt-2">
-               GANHE Pontos e Economize a cada compra! Crie ou Acesse sua conta e receba pontos de bônus, descontos exclusivos e acompanhe seu progresso. Não perca a chance de transformar suas compras em recompensas reais! 
+               Economize a cada compra! Crie ou Acesse sua conta GANHE Cashback. 
               </DialogDescription>
             </DialogHeader>
 
