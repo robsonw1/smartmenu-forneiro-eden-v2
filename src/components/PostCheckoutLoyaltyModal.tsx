@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLoyaltyStore } from '@/store/useLoyaltyStore';
+import { useLoyaltySettingsStore } from '@/store/useLoyaltySettingsStore';
 import { toast } from 'sonner';
 import { Gift, Star, Sparkles, TrendingUp, User, LogIn } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
@@ -54,6 +55,16 @@ export function PostCheckoutLoyaltyModal({
   const registerCustomer = useLoyaltyStore((s) => s.registerCustomer);
   const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
   const isRemembered = useLoyaltyStore((s) => s.isRemembered);
+
+  // Valores dinâmicos do painel de fidelização
+  const loyaltySettings = useLoyaltySettingsStore((s) => s.settings);
+  const signupBonusPoints = loyaltySettings?.signupBonusPoints ?? 50;
+  const pointsPerReal = loyaltySettings?.pointsPerReal ?? 1;
+  const discountPer100Points = loyaltySettings?.discountPer100Points ?? 5;
+  
+  // Cálculos dinâmicos
+  const bonusInReais = (signupBonusPoints / 100) * discountPer100Points;
+  const pointsPercentage = (pointsPerReal * 100).toFixed(0);
 
   const handleClose = () => {
     setStep('benefits');
@@ -104,7 +115,7 @@ export function PostCheckoutLoyaltyModal({
       );
 
       if (success) {
-        setSuccessMessage('Bem-vindo! 50 pontos bônus adicionados 🎉');
+        setSuccessMessage(`Bem-vindo! ${signupBonusPoints} pontos bônus adicionados 🎉`);
         setStep('success');
         toast.success('✅ Conta criada com sucesso!');
       } else {
@@ -228,7 +239,7 @@ export function PostCheckoutLoyaltyModal({
 
             <div className="space-y-6 py-8">
               <div className="text-center space-y-2">
-                <p className="text-lg font-semibold text-primary">50 Pontos</p>
+                <p className="text-lg font-semibold text-primary">{signupBonusPoints} Pontos</p>
                 <p className="text-sm text-muted-foreground">em sua conta</p>
               </div>
 
@@ -250,7 +261,7 @@ export function PostCheckoutLoyaltyModal({
             <DialogHeader>
               <div className="flex items-center justify-center gap-2 mb-4">
                 <Gift className="w-8 h-8 text-primary" />
-                <DialogTitle>GANHE PONTOS A CADA COMPRA!</DialogTitle>
+                <DialogTitle>Minha Conta</DialogTitle>
               </div>
               <DialogDescription className="text-center pt-2">
                 Acesse sua conta ou crie uma nova e GANHE cashback a cada compra!
@@ -262,9 +273,9 @@ export function PostCheckoutLoyaltyModal({
                 <div className="flex items-start gap-3">
                   <Star className="w-4 h-4 text-primary mt-1 flex-shrink-0" />
                   <div className="flex-1">
-                    <p className="font-semibold text-sm">50 Pontos de Bônus</p>
+                    <p className="font-semibold text-sm">{signupBonusPoints} Pontos de Bônus</p>
                     <p className="text-xs text-muted-foreground">
-                      R$ 2,50 em desconto na sua próxima compra
+                      R$ {bonusInReais.toFixed(2)} em desconto na sua próxima compra
                     </p>
                   </div>
                 </div>
@@ -274,9 +285,9 @@ export function PostCheckoutLoyaltyModal({
                 <div className="flex items-start gap-3">
                   <Star className="w-4 h-4 text-primary mt-1 flex-shrink-0" />
                   <div className="flex-1">
-                    <p className="font-semibold text-sm">1% de Pontos</p>
+                    <p className="font-semibold text-sm">{pointsPercentage}% de Pontos</p>
                     <p className="text-xs text-muted-foreground">
-                      Ganhe em cada compra (100 pontos = R$ 5)
+                      Ganhe em cada compra (100 pontos = R$ {discountPer100Points})
                     </p>
                   </div>
                 </div>
