@@ -64,7 +64,7 @@ export function PostCheckoutLoyaltyModal({
   
   // Cálculos dinâmicos
   const bonusInReais = (signupBonusPoints / 100) * discountPer100Points;
-  const pointsPercentage = (pointsPerReal * 100).toFixed(0);
+  const pointsPercentage = pointsPerReal.toFixed(0);
 
   const handleClose = () => {
     setStep('benefits');
