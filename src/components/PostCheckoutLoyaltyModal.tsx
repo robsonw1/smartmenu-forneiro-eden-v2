@@ -29,7 +29,7 @@ export function PostCheckoutLoyaltyModal({
   email,
   pointsEarned = 0,
 }: PostCheckoutLoyaltyModalProps) {
-  const [step, setStep] = useState<'auth' | 'form'>('auth');
+  const [step, setStep] = useState<'auth' | 'method' | 'form'>('auth');
   const [currentEmail, setCurrentEmail] = useState('');
   const [keepConnected, setKeepConnected] = useState(false);
   const [formData, setFormData] = useState({
@@ -204,8 +204,37 @@ export function PostCheckoutLoyaltyModal({
               <Button variant="outline" onClick={handleSkip} className="flex-1">
                 Agora Não
               </Button>
-              <Button onClick={() => setStep('form')} className="flex-1">
+              <Button onClick={() => setStep('method')} className="flex-1">
                 Entrar / Cadastrar
+              </Button>
+            </DialogFooter>
+          </>
+        ) : step === 'method' ? (
+          <>
+            <DialogHeader>
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <Gift className="w-8 h-8 text-primary" />
+                <DialogTitle>Minha Conta</DialogTitle>
+              </div>
+              <DialogDescription className="text-center pt-2">
+                Acesse sua conta ou crie uma nova
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-8">
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => setStep('form')} className="flex-1 h-12 text-base">
+                  ➜ Entrar
+                </Button>
+                <Button onClick={() => setStep('form')} className="flex-1 h-12 text-base">
+                  ➕ Criar Conta
+                </Button>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setStep('auth')} className="w-full">
+                Voltar
               </Button>
             </DialogFooter>
           </>
@@ -297,7 +326,7 @@ export function PostCheckoutLoyaltyModal({
             </div>
 
             <DialogFooter className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep('auth')} className="flex-1" disabled={isLoading}>
+              <Button variant="outline" onClick={() => setStep('method')} className="flex-1" disabled={isLoading}>
                 Cancelar
               </Button>
               <Button onClick={handleRegister} className="flex-1" disabled={isLoading}>
