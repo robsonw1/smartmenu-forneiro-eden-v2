@@ -586,6 +586,7 @@ export function CheckoutModal() {
         // Skip validation if pickup
         if (deliveryType === 'pickup') return true;
         // Validate address fields only for delivery
+        // ✅ PADRONIZADO: selectedNeighborhood é OBRIGATÓRIO para TODOS os clientes (logado ou não)
         if (!address.street || !address.number || !selectedNeighborhood) {
           toast.error('Por favor, preencha o endereço completo ou selecione/adicione seu bairro');
           return false;
@@ -745,7 +746,7 @@ export function CheckoutModal() {
             street: address.street,
             number: address.number,
             complement: address.complement || '',
-            neighborhood: selectedNeighborhood?.name || address.neighborhood,
+            neighborhood: selectedNeighborhood?.name || '',
             city: address.city || 'São Paulo',
             state: 'SP',
             zipcode: address.zipCode,
@@ -850,7 +851,7 @@ export function CheckoutModal() {
       },
       address: {
         city: address.city || 'São Paulo',
-        neighborhood: selectedNeighborhood?.name || address.neighborhood,
+        neighborhood: selectedNeighborhood?.name || '',
         street: address.street,
         number: address.number,
         complement: address.complement,
@@ -1703,7 +1704,7 @@ export function CheckoutModal() {
                         <div className="relative mt-1">
                           <Input
                             id="neighborhood"
-                            placeholder="Digitar ou selecionar um bairro"
+                            placeholder="Digite ou selecione um bairro"
                             value={neighborhoodInput}
                             onChange={(e) => {
                               const inputValue = e.target.value;
