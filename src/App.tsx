@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 import { useSettingsRealtimeSync } from "@/hooks/use-settings-realtime-sync";
+import { useLoyaltySettingsRealtimeSync } from "@/hooks/use-loyalty-settings-realtime-sync";
 import { useSettingsInitialLoad } from "@/hooks/use-settings-initial-load";
 import { useScheduleSync } from "@/hooks/use-schedule-sync";
 import { useSettingsUpdateListener } from "@/hooks/use-settings-update-listener";
@@ -23,6 +24,7 @@ const AppContent = () => {
   useRealtimeSync();
   useSettingsInitialLoad();
   useSettingsRealtimeSync();
+  useLoyaltySettingsRealtimeSync();
   useScheduleSync();
   useSettingsUpdateListener(); // ✅ Monitorar atualizações do admin
   const { loadSettings } = useLoyaltySettingsStore();
