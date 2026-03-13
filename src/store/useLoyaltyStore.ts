@@ -60,8 +60,8 @@ interface LoyaltyStore {
   
   // Actions
   findOrCreateCustomer: (email: string) => Promise<Customer | null>;
-  registerCustomer: (email: string, cpf: string, name: string, phone?: string) => Promise<boolean>;
-  registerCustomerWithoutBonus: (email: string, cpf: string, name: string, phone?: string) => Promise<boolean>;
+  registerCustomer: (email: string, cpf: string, name?: string, phone?: string) => Promise<boolean>;
+  registerCustomerWithoutBonus: (email: string, cpf: string, name?: string, phone?: string) => Promise<boolean>;
   addPointsFromPurchase: (customerId: string, amount: number, orderId: string, pointsRedeemed?: number) => Promise<void>;
   addSignupBonus: (customerId: string) => Promise<void>;
   redeemPoints: (customerId: string, pointsToSpend: number) => Promise<{ success: boolean; discountAmount: number }>;
@@ -170,7 +170,7 @@ export const useLoyaltyStore = create<LoyaltyStore>((set, get) => ({
     }
   },
 
-  registerCustomer: async (email: string, cpf: string, name: string, phone?: string) => {
+  registerCustomer: async (email: string, cpf: string, name?: string, phone?: string) => {
     try {
       // 🔒 Normalizar email (URGENTE #6)
       const normalizedEmail = normalizeEmail(email);
@@ -219,7 +219,7 @@ export const useLoyaltyStore = create<LoyaltyStore>((set, get) => ({
     }
   },
 
-  registerCustomerWithoutBonus: async (email: string, cpf: string, name: string, phone?: string) => {
+  registerCustomerWithoutBonus: async (email: string, cpf: string, name?: string, phone?: string) => {
     try {
       // 🔒 Normalizar email (URGENTE #6)
       const normalizedEmail = normalizeEmail(email);
