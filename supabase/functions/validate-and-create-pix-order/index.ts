@@ -6,10 +6,31 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Obter token de acesso (tenant ou fallback do sistema)
-async function getAccessToken(supabase: any): Promise<string> {
+// Obter token de acesso (tenant específico ou fallback do sistema)
+async function getAccessToken(supabase: any, tenantId?: string): Promise<string> {
   const fallbackToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
 
+  // Tentar buscar token do tenant específico
+  if (tenantId) {
+    try {
+      const { data } = await supabase
+        .from('tenants')
+        .select('id, mercadopago_access_token')
+        .eq('id', tenantId)
+        .single();
+
+      if (data?.mercadopago_access_token) {
+        console.log(`✅ Usando token do tenant específico: ${data.id}`);
+        return data.mercadopago_access_token;
+      } else {
+        console.warn(`⚠️ Tenant ${tenantId} não tem token configurado`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ Erro ao buscar token do tenant ${tenantId}:`, error);
+    }
+  }
+
+  // Fallback para primeiro tenant (compatibilidade)
   try {
     const { data } = await supabase
       .from('tenants')
@@ -18,11 +39,11 @@ async function getAccessToken(supabase: any): Promise<string> {
       .single();
 
     if (data?.mercadopago_access_token) {
-      console.log(`✅ Usando token do tenant: ${data.id}`);
+      console.log(`✅ Usando token do tenant padrão: ${data.id}`);
       return data.mercadopago_access_token;
     }
   } catch (error) {
-    console.warn('⚠️ Nenhum tenant encontrado ou sem token configurado:', error);
+    console.warn('⚠️ Nenhum tenant encontrado');
   }
 
   if (!fallbackToken) {
@@ -58,7 +79,8 @@ serve(async (req) => {
     // ============================================================
     let accessToken;
     try {
-      accessToken = await getAccessToken(supabase);
+      const tenantId = orderPayload.tenantId;
+      accessToken = await getAccessToken(supabase, tenantId);
     } catch (error) {
       console.error('❌ Erro ao obter token:', error);
       return new Response(
