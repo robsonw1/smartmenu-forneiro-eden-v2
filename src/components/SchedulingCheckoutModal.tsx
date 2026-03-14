@@ -1508,8 +1508,8 @@ export function SchedulingCheckoutModal() {
       return;
     }
 
-    if (!lastOrderId || !lastOrderPayload) {
-      toast.error('Dados do pedido não encontrados');
+    if (!lastOrderId) {
+      toast.error('ID do pedido não encontrado');
       return;
     }
 
@@ -1522,12 +1522,41 @@ export function SchedulingCheckoutModal() {
         pointsRedeemed: lastPointsRedeemed
       });
 
+      // ⚠️ SE lastOrderPayload ESTIVER VAZIO, RECUPERAR DE pending_pix_orders
+      let orderPayloadToUse = lastOrderPayload;
+      if (!orderPayloadToUse) {
+        console.log('⚠️ lastOrderPayload vazio, buscando de pending_pix_orders...');
+        try {
+          // @ts-ignore
+          const { data: pendingOrder, error } = await (supabase as any)
+            .from('pending_pix_orders')
+            .select('order_payload')
+            .eq('id', lastOrderId)
+            .single();
+          
+          if (error) {
+            console.warn('⚠️ Erro ao recuperar:', error);
+          } else if (pendingOrder?.order_payload) {
+            orderPayloadToUse = pendingOrder.order_payload;
+            console.log('✅ Dados recuperados de pending_pix_orders');
+          }
+        } catch (err) {
+          console.warn('⚠️ Erro ao recuperar de pending_pix_orders:', err);
+        }
+      }
+
+      // Validar que temos os dados
+      if (!orderPayloadToUse) {
+        toast.error('❌ Dados do pedido não encontrados. Tente gerar PIX novamente.');
+        return;
+      }
+
       const { data: validationData, error: validationError } = await supabase.functions.invoke(
         'validate-and-create-pix-order',
         {
           body: {
             paymentId: pixData.paymentId,
-            orderPayload: lastOrderPayload
+            orderPayload: orderPayloadToUse
           }
         }
       );
