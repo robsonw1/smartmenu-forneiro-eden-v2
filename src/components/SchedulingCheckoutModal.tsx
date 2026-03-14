@@ -486,6 +486,10 @@ export function SchedulingCheckoutModal() {
             console.log('🔄 Disparando processamento de pontos no fluxo automático...');
             await processPointsAndCoupons(pointsRedeemed, finalTotal, appliedCoupon);
 
+            // 🖨️ AUTO-PRINT: Tentar imprimir automaticamente se configurado
+            console.log('🖨️ Disparando auto-print se habilitado...');
+            await handleAutoPrintOrder(lastOrderId);
+
             // Mostrar confirmação automaticamente
             toast.success('✅ Pedido confirmado com sucesso!');
             setStep('confirmation');
@@ -1446,6 +1450,55 @@ export function SchedulingCheckoutModal() {
     } catch (error) {
       console.error('❌ [POINTS] Erro ao processar pontos e cupons:', error);
     }
+  };
+
+  // 🖨️ AUTO-PRINT: Imprimir pedido automaticamente via webhook
+  const handleAutoPrintOrder = async (orderId: string) => {
+    // Verificar se auto-print está habilitado para PIX
+    if (!settings?.auto_print_pix) {
+      console.log('⏭️ [AUTOPRINT] PIX auto-print desabilitado. Pulando impressão automática.');
+      return;
+    }
+
+    console.log(`🖨️ [AUTOPRINT] Iniciando impressão automática para ${orderId}...`);
+
+    console.log(`🖨️ [AUTOPRINT] Iniciando impressão automática para ${orderId}...`);
+
+    // Retry logic com exponential backoff
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        console.log(`📤 [AUTOPRINT] Tentativa ${attempt}/3 de invocar printorder...`);
+        const { data, error } = await supabase.functions.invoke('printorder', {
+          body: {
+            orderId,
+            force: true,
+          },
+        });
+
+        if (error) {
+          console.warn(`⚠️ [AUTOPRINT] Tentativa ${attempt}: Erro -`, error.message || error);
+          if (attempt < 3) {
+            const delayMs = 500 * attempt; // 500ms, 1s, 1.5s
+            console.log(`⏳ [AUTOPRINT] Aguardando ${delayMs}ms antes de próxima tentativa...`);
+            await new Promise(r => setTimeout(r, delayMs));
+            continue;
+          }
+        } else {
+          console.log(`✅ [AUTOPRINT] Printorder sucesso na tentativa ${attempt}:`, data);
+          return; // Sucesso - sair
+        }
+      } catch (err) {
+        console.error(`❌ [AUTOPRINT] Tentativa ${attempt} capturou erro:`, err);
+        if (attempt < 3) {
+          const delayMs = 500 * attempt;
+          console.log(`⏳ [AUTOPRINT] Aguardando ${delayMs}ms...`);
+          await new Promise(r => setTimeout(r, delayMs));
+        }
+      }
+    }
+
+    // Se chegou aqui, todas as tentativas falharam
+    console.warn('⚠️ [AUTOPRINT] Todas as tentativas de impressão automática falharam. Usuário pode imprimir manualmente no admin.');
   };
 
   const handlePixConfirmed = async () => {
