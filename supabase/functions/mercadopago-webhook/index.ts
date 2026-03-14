@@ -217,26 +217,52 @@ serve(async (req) => {
               // 3️⃣ Criar ordem completa com dados do pending
               console.log(`✅ Dados encontrados! Criando pedido completo...`);
               
-              // Normalizar payload: converter camelCase para snake_case
+              // Normalizar payload para schema flat do banco
               const normalizedPayload = {
-                ...pendingOrder.order_payload,
+                // ID e status
+                id: orderId,
+                status: 'confirmed',
+                payment_status: 'approved',
+                payment_confirmed_at: new Date().toISOString(),
+                mercado_pago_id: paymentId.toString(),
+                
+                // Customer (flatteado de pendingOrder individual fields e do payload)
+                customer_name: pendingOrder.customer_name || pendingOrder.order_payload.customer?.name || '',
+                customer_phone: pendingOrder.customer_phone || pendingOrder.order_payload.customer?.phone || '',
+                email: pendingOrder.customer_email || pendingOrder.order_payload.customer?.email || '',
+                customer_id: pendingOrder.customer_id || pendingOrder.order_payload.customer_id || null,
+                
+                // Delivery
+                delivery_fee: pendingOrder.order_payload.delivery?.fee || pendingOrder.order_payload.totals?.deliveryFee || 0,
+                address: pendingOrder.order_payload.delivery?.address || null,
+                
+                // Payment
+                payment_method: pendingOrder.order_payload.payment?.method || 'pix',
+                
+                // Totals
+                subtotal: pendingOrder.order_payload.totals?.subtotal || 0,
+                total: pendingOrder.order_payload.totals?.total || 0,
                 points_discount: pendingOrder.order_payload.totals?.pointsDiscount || 0,
                 points_redeemed: pendingOrder.order_payload.totals?.pointsRedeemed || 0,
                 coupon_discount: pendingOrder.order_payload.totals?.couponDiscount || 0,
                 applied_coupon: pendingOrder.order_payload.totals?.appliedCoupon || null,
-                totals: undefined,
+                
+                // Observations
+                observations: pendingOrder.order_payload.observations || '',
+                
+                // Tenant
+                tenant_id: pendingOrder.order_payload.tenantId || pendingOrder.order_payload.tenant_id || tenantId || 'default',
+                
+                // Items
+                items: pendingOrder.order_payload.items || [],
+                
+                // Timestamp
+                created_at: new Date().toISOString(),
               };
               
               const { error: createError } = await supabase
                 .from('orders')
-                .insert([{
-                  ...normalizedPayload,
-                  id: orderId,
-                  status: 'confirmed',
-                  payment_status: 'approved',
-                  payment_confirmed_at: new Date().toISOString(),
-                  mercado_pago_id: paymentId.toString(),
-                }]);
+                .insert([normalizedPayload]);
 
               if (createError) {
                 console.error(`❌ Erro ao criar pedido ${orderId}:`, createError);
