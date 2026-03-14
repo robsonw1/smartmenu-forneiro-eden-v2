@@ -9,17 +9,26 @@ const corsHeaders = {
 // Obter token de acesso (tenant específico ou fallback do sistema)
 async function getAccessToken(supabase: any, tenantId?: string): Promise<string> {
   const fallbackToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+  
+  console.log('🔑 [GET-ACCESS-TOKEN] Iniciando busca:', { 
+    tenantIdProvided: !!tenantId,
+    tenantId: tenantId || 'undefined',
+    hasFallbackToken: !!fallbackToken
+  });
 
-  // Tentar buscar token do tenant específico
-  if (tenantId) {
+  // Tentar buscar token do tenant específico (APENAS se tenantId for válido)
+  if (tenantId && tenantId.trim()) {
     try {
-      const { data } = await supabase
+      console.log(`🔍 Buscando token do tenant específico: ${tenantId}`);
+      const { data, error } = await supabase
         .from('tenants')
         .select('id, mercadopago_access_token')
         .eq('id', tenantId)
         .single();
 
-      if (data?.mercadopago_access_token) {
+      if (error) {
+        console.warn(`⚠️ Erro ao buscar tenant ${tenantId}:`, error.message);
+      } else if (data?.mercadopago_access_token) {
         console.log(`✅ Usando token do tenant específico: ${data.id}`);
         return data.mercadopago_access_token;
       } else {
@@ -28,30 +37,41 @@ async function getAccessToken(supabase: any, tenantId?: string): Promise<string>
     } catch (error) {
       console.warn(`⚠️ Erro ao buscar token do tenant ${tenantId}:`, error);
     }
+  } else {
+    console.log('⚠️ TenantId não fornecido ou vazio, pulando busca específica');
   }
 
   // Fallback para primeiro tenant (compatibilidade)
   try {
-    const { data } = await supabase
+    console.log('🔍 Buscando token do primeiro tenant (fallback)...');
+    const { data, error } = await supabase
       .from('tenants')
       .select('id, mercadopago_access_token')
       .limit(1)
       .single();
 
-    if (data?.mercadopago_access_token) {
+    if (error) {
+      console.warn('⚠️ Erro ao buscar primeiro tenant:', error.message);
+    } else if (data?.mercadopago_access_token) {
       console.log(`✅ Usando token do tenant padrão: ${data.id}`);
       return data.mercadopago_access_token;
+    } else {
+      console.warn('⚠️ Primeiro tenant não tem token configurado');
     }
   } catch (error) {
-    console.warn('⚠️ Nenhum tenant encontrado');
+    console.warn('⚠️ Erro ao buscar primeiro tenant:', error);
   }
 
-  if (!fallbackToken) {
-    throw new Error('MERCADO_PAGO_ACCESS_TOKEN not configured');
+  // Fallback final para env var
+  if (fallbackToken) {
+    console.log('⚠️ Usando token do sistema (fallback)');
+    return fallbackToken;
   }
 
-  console.log('⚠️ Usando token do sistema (fallback)');
-  return fallbackToken;
+  // Se chegou aqui, erro crítico
+  const errorMsg = 'MERCADO_PAGO_ACCESS_TOKEN not configured and no tenant tokens found';
+  console.error('❌ ' + errorMsg);
+  throw new Error(errorMsg);
 }
 
 serve(async (req) => {
