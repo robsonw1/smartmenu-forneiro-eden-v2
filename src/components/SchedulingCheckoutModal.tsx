@@ -446,52 +446,60 @@ export function SchedulingCheckoutModal() {
     console.log('🔄 Listening for PIX confirmation via Realtime:', lastOrderId);
     const currentTotal = subtotal + deliveryFee;
 
-    // Subscrever para mudanças na ordem
-    const subscription = supabase
-      .from('orders')
-      // @ts-ignore - Supabase Realtime type compatibility
-      .on('*', async (payload: any) => {
-        console.log('📡 Realtime update received:', payload);
+    // Subscrever para mudanças na ordem com Supabase v2 Realtime
+    const channel = supabase
+      .channel(`orders:${lastOrderId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${lastOrderId}`
+        },
+        async (payload: any) => {
+          console.log('📡 Realtime update received:', payload);
 
-        if (payload.new?.id === lastOrderId && payload.new?.status === 'confirmed') {
-          console.log('✅ Payment confirmed automatically via webhook!');
-          
-          // Atualizar state com informações do pedido criado
-          const finalTotal = payload.new?.totals?.total || currentTotal;
-          const pointsRedeemed = payload.new?.totals?.pointsRedeemed || 0;
-          const appliedCoupon = payload.new?.totals?.appliedCoupon || null;
-          
-          setLastFinalTotal(finalTotal);
-          if (payload.new?.totals?.pointsDiscount) {
-            setLastPointsDiscount(payload.new.totals.pointsDiscount);
-          }
-          if (pointsRedeemed) {
-            setLastPointsRedeemed(pointsRedeemed);
-          }
-          if (payload.new?.totals?.couponDiscount) {
-            setLastCouponDiscount(payload.new.totals.couponDiscount);
-          }
-          if (appliedCoupon) {
-            setLastAppliedCoupon(appliedCoupon);
-          }
+          if (payload.new?.id === lastOrderId && payload.new?.status === 'confirmed') {
+            console.log('✅ Payment confirmed automatically via webhook!');
+            
+            // Atualizar state com informações do pedido criado
+            const finalTotal = payload.new?.totals?.total || currentTotal;
+            const pointsRedeemed = payload.new?.totals?.pointsRedeemed || 0;
+            const appliedCoupon = payload.new?.totals?.appliedCoupon || null;
+            
+            setLastFinalTotal(finalTotal);
+            if (payload.new?.totals?.pointsDiscount) {
+              setLastPointsDiscount(payload.new.totals.pointsDiscount);
+            }
+            if (pointsRedeemed) {
+              setLastPointsRedeemed(pointsRedeemed);
+            }
+            if (payload.new?.totals?.couponDiscount) {
+              setLastCouponDiscount(payload.new.totals.couponDiscount);
+            }
+            if (appliedCoupon) {
+              setLastAppliedCoupon(appliedCoupon);
+            }
 
-          // 💰 Processar pontos IMEDIATAMENTE após confirmação automática
-          console.log('🔄 Disparando processamento de pontos no fluxo automático...');
-          await processPointsAndCoupons(pointsRedeemed, finalTotal, appliedCoupon);
+            // 💰 Processar pontos IMEDIATAMENTE após confirmação automática
+            console.log('🔄 Disparando processamento de pontos no fluxo automático...');
+            await processPointsAndCoupons(pointsRedeemed, finalTotal, appliedCoupon);
 
-          // Mostrar confirmação automaticamente
-          toast.success('✅ Pedido confirmado com sucesso!');
-          setStep('confirmation');
-          setTimeout(() => setIsLoyaltyModalOpen(true), 500);
+            // Mostrar confirmação automaticamente
+            toast.success('✅ Pedido confirmado com sucesso!');
+            setStep('confirmation');
+            setTimeout(() => setIsLoyaltyModalOpen(true), 500);
 
-          // Unsubscribe
-          subscription.unsubscribe();
+            // Unsubscribe
+            await channel.unsubscribe();
+          }
         }
-      })
+      )
       .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      channel.unsubscribe();
     };
   }, [step, lastOrderId, subtotal, deliveryFee]);
 
