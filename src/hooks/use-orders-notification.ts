@@ -34,7 +34,7 @@ export const useOrdersNotification = () => {
       try {
         const { data, error } = await (supabase as any)
           .from('orders')
-          .select('id, status, created_at, updated_at')
+          .select('id, status, created_at')
           .eq('email', currentCustomer.email)
           .order('created_at', { ascending: false })
           .limit(1);
