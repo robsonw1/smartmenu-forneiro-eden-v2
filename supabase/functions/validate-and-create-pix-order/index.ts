@@ -172,11 +172,30 @@ serve(async (req) => {
 
     const orderId = orderPayload.id;
 
+    // Transformar payload: camelCase -> snake_case para banco de dados
+    const normalizedPayload = {
+      ...orderPayload,
+      // Normalizar campos de totals se existirem
+      points_discount: orderPayload.totals?.pointsDiscount || 0,
+      points_redeemed: orderPayload.totals?.pointsRedeemed || 0,
+      coupon_discount: orderPayload.totals?.couponDiscount || 0,
+      applied_coupon: orderPayload.totals?.appliedCoupon || null,
+      // Remover campo totals que não existe no banco
+      totals: undefined,
+    };
+
+    console.log('🔍 [VALIDATE-AND-CREATE] Payload normalizado:', {
+      points_discount: normalizedPayload.points_discount,
+      points_redeemed: normalizedPayload.points_redeemed,
+      coupon_discount: normalizedPayload.coupon_discount,
+      applied_coupon: normalizedPayload.applied_coupon,
+    });
+
     // Criar o pedido no banco de dados
     const { data: createdOrder, error: orderError } = await supabase
       .from('orders')
       .insert([{
-        ...orderPayload,
+        ...normalizedPayload,
         status: 'confirmed', // PIX aprovado = pedido confirmado
         payment_status: 'approved',
         payment_confirmed_at: new Date().toISOString(),
