@@ -29,11 +29,31 @@ async function validateWebhookSignature(body: string, signature: string): Promis
   }
 }
 
-// Obter token de acesso (tenant ou fallback do sistema)
-async function getAccessToken(supabase: any): Promise<string> {
+// Obter token de acesso (tenant específico ou fallback do sistema)
+async function getAccessToken(supabase: any, tenantId?: string): Promise<string> {
   const fallbackToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
 
-  // Tentar buscar token do primeiro/único tenant
+  // Tentar buscar token do tenant específico
+  if (tenantId) {
+    try {
+      const { data } = await supabase
+        .from('tenants')
+        .select('id, mercadopago_access_token')
+        .eq('id', tenantId)
+        .single();
+
+      if (data?.mercadopago_access_token) {
+        console.log(`✅ Usando token do tenant específico: ${data.id}`);
+        return data.mercadopago_access_token;
+      } else {
+        console.warn(`⚠️ Tenant ${tenantId} não tem token configurado`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ Erro ao buscar token do tenant ${tenantId}:`, error);
+    }
+  }
+
+  // Fallback para primeiro tenant (compatibilidade)
   try {
     const { data } = await supabase
       .from('tenants')
@@ -42,11 +62,11 @@ async function getAccessToken(supabase: any): Promise<string> {
       .single();
 
     if (data?.mercadopago_access_token) {
-      console.log(`✅ Usando token do tenant: ${data.id}`);
+      console.log(`✅ Usando token do tenant padrão: ${data.id}`);
       return data.mercadopago_access_token;
     }
   } catch (error) {
-    console.warn('⚠️ Nenhum tenant encontrado ou sem token configurado:', error);
+    console.warn('⚠️ Nenhum tenant encontrado');
   }
 
   if (!fallbackToken) {
@@ -88,10 +108,32 @@ serve(async (req) => {
     if (payloadData.type === 'payment' && payloadData.data?.id) {
       const paymentId = payloadData.data.id;
       
-      // Obter token de acesso (tenta do cliente, fallback para sistema)
+      // Obter de forma temporária para buscar tenantId
       let accessToken;
+      let tenantId: string | undefined;
+      
+      // Buscar tenantId a partir do pending_pix_order (se existe)
       try {
-        accessToken = await getAccessToken(supabase);
+        const orderId = payloadData.data.external_reference;
+        if (orderId) {
+          const { data: pendingOrder } = await supabase
+            .from('pending_pix_orders')
+            .select('order_payload')
+            .eq('id', orderId)
+            .single();
+          
+          if (pendingOrder?.order_payload?.tenantId) {
+            tenantId = pendingOrder.order_payload.tenantId;
+            console.log(`📋 Tenant encontrado no pending_pix_order: ${tenantId}`);
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Erro ao buscar tenantId de pending_pix_orders:', error);
+      }
+      
+      // Obter token de acesso com tenant específico
+      try {
+        accessToken = await getAccessToken(supabase, tenantId);
       } catch (error) {
         console.error('❌ Erro ao obter token de acesso:', error);
         return new Response(JSON.stringify({ error: 'No access token available' }), {
