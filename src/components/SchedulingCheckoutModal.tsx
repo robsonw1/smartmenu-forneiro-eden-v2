@@ -1230,6 +1230,7 @@ export function SchedulingCheckoutModal() {
         const { data: mpData, error: mpError } = await supabase.functions.invoke('mercadopago-payment', {
           body: {
             orderId,
+            tenantId: tenantId,
             amount: finalTotal,
             description: `Pedido ${orderId} - Forneiro Éden`,
             payerEmail: 'cliente@forneiroeden.com',
