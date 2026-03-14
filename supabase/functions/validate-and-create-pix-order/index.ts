@@ -172,35 +172,62 @@ serve(async (req) => {
 
     const orderId = orderPayload.id;
 
-    // Transformar payload: camelCase -> snake_case para banco de dados
+    // Transformar payload estruturado do frontend para schema flat do banco
     const normalizedPayload = {
-      ...orderPayload,
-      // Normalizar campos de totals se existirem
+      // ID e status
+      id: orderPayload.orderId || orderId,
+      status: 'confirmed',
+      payment_status: 'approved',
+      payment_confirmed_at: new Date().toISOString(),
+      mercado_pago_id: paymentId.toString(),
+      
+      // Customer (flatteado)
+      customer_name: orderPayload.customer?.name || '',
+      customer_phone: orderPayload.customer?.phone || '',
+      email: orderPayload.customer?.email || '',
+      customer_id: orderPayload.customer_id || null,
+      
+      // Delivery
+      delivery_fee: orderPayload.delivery?.fee || orderPayload.totals?.deliveryFee || 0,
+      address: orderPayload.delivery?.address || null,
+      
+      // Payment
+      payment_method: orderPayload.payment?.method || 'pix',
+      
+      // Totals
+      subtotal: orderPayload.totals?.subtotal || 0,
+      total: orderPayload.totals?.total || 0,
       points_discount: orderPayload.totals?.pointsDiscount || 0,
       points_redeemed: orderPayload.totals?.pointsRedeemed || 0,
       coupon_discount: orderPayload.totals?.couponDiscount || 0,
       applied_coupon: orderPayload.totals?.appliedCoupon || null,
-      // Remover campo totals que não existe no banco
-      totals: undefined,
+      
+      // Observations
+      observations: orderPayload.observations || '',
+      
+      // Tenant (CRÍTICO - obrigatório)
+      tenant_id: orderPayload.tenantId || orderPayload.tenant_id || Deno.env.get('DEFAULT_TENANT_ID') || 'default',
+      
+      // Items (se precisar salvar)
+      items: orderPayload.items || [],
+      
+      // Timestamp
+      created_at: new Date().toISOString(),
     };
 
-    console.log('🔍 [VALIDATE-AND-CREATE] Payload normalizado:', {
-      points_discount: normalizedPayload.points_discount,
-      points_redeemed: normalizedPayload.points_redeemed,
+    console.log('🔍 [VALIDATE-AND-CREATE] Payload normalizado final:', {
+      id: normalizedPayload.id,
+      customer_name: normalizedPayload.customer_name,
+      customer_phone: normalizedPayload.customer_phone,
+      total: normalizedPayload.total,
+      tenant_id: normalizedPayload.tenant_id,
       coupon_discount: normalizedPayload.coupon_discount,
-      applied_coupon: normalizedPayload.applied_coupon,
     });
 
     // Criar o pedido no banco de dados
     const { data: createdOrder, error: orderError } = await supabase
       .from('orders')
-      .insert([{
-        ...normalizedPayload,
-        status: 'confirmed', // PIX aprovado = pedido confirmado
-        payment_status: 'approved',
-        payment_confirmed_at: new Date().toISOString(),
-        mercado_pago_id: paymentId.toString(),
-      }])
+      .insert([normalizedPayload])
       .select();
 
     if (orderError) {
