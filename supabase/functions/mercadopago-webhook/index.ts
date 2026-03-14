@@ -217,10 +217,20 @@ serve(async (req) => {
               // 3️⃣ Criar ordem completa com dados do pending
               console.log(`✅ Dados encontrados! Criando pedido completo...`);
               
+              // Normalizar payload: converter camelCase para snake_case
+              const normalizedPayload = {
+                ...pendingOrder.order_payload,
+                points_discount: pendingOrder.order_payload.totals?.pointsDiscount || 0,
+                points_redeemed: pendingOrder.order_payload.totals?.pointsRedeemed || 0,
+                coupon_discount: pendingOrder.order_payload.totals?.couponDiscount || 0,
+                applied_coupon: pendingOrder.order_payload.totals?.appliedCoupon || null,
+                totals: undefined,
+              };
+              
               const { error: createError } = await supabase
                 .from('orders')
                 .insert([{
-                  ...pendingOrder.order_payload,
+                  ...normalizedPayload,
                   id: orderId,
                   status: 'confirmed',
                   payment_status: 'approved',
