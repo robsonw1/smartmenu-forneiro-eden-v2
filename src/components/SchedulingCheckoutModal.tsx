@@ -156,6 +156,68 @@ export function SchedulingCheckoutModal() {
   const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
   const isRemembered = useLoyaltyStore((s) => s.isRemembered);
 
+  // 🔴 REALTIME: Auto-confirmar PIX quando webhook cria o pedido
+  useEffect(() => {
+    if (!isSchedulingCheckoutOpen || step !== 'pix' || !lastOrderId) return;
+
+    console.log('👁️ [CHECKOUT-REALTIME] Monitorando auto-confirmção PIX para:', lastOrderId);
+
+    const channel = supabase
+      .channel(`checkout-pix-${lastOrderId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${lastOrderId}`
+        },
+        async (payload) => {
+          const updatedOrder = payload.new as any;
+          console.log('🔔 [CHECKOUT-REALTIME] Pedido atualizado:', {
+            id: updatedOrder.id,
+            status: updatedOrder.status,
+            payment_status: updatedOrder.payment_status
+          });
+
+          // Se webhook auto-confirmou o pedido
+          if (updatedOrder.status === 'confirmed' || updatedOrder.payment_status === 'approved') {
+            console.log('✅ [CHECKOUT-REALTIME] Pedido foi confirmado automaticamente pelo webhook!');
+            
+            // Navegar para tela de confirmação
+            setStep('confirmation');
+            
+            // Executar processamento pós-pagamento (pontos, cupons, etc)
+            try {
+              const response = await supabase
+                .from('orders')
+                .select('*')
+                .eq('id', lastOrderId)
+                .single();
+
+              if (response.data) {
+                const createdOrder = response.data;
+                // Chamar 'handleConfirmedOrder' ou similar para processar
+                await processPointsAndCoupons(lastPointsRedeemed, lastFinalTotal, lastAppliedCoupon);
+                console.log('✅ Pontos e cupons processados para:', lastOrderId);
+              }
+            } catch (error) {
+              console.error('⚠️ Erro ao processar pedido auto-confirmado:', error);
+              // Mesmo com erro, o pedido está confirmado no banco
+            }
+
+            // Mostrar modal de fidelização após 2 segundos
+            setTimeout(() => setIsLoyaltyModalOpen(true), 2000);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [isSchedulingCheckoutOpen, step, lastOrderId, supabase]);
+
   // 🔴 REALTIME: Cancelamentos de pedidos
   useOrderCancellationSync(
     isSchedulingCheckoutOpen,
@@ -862,6 +924,9 @@ export function SchedulingCheckoutModal() {
       
       // Observations
       observations: observations || '',
+      
+      // Tenant ID (CRÍTICO para multi-tenant)
+      tenantId: tenantId || '',
     };
   };
 
