@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useLoyaltyStore } from '@/store/useLoyaltyStore';
-import { useAddressNotification } from '@/hooks/use-address-notification';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -36,9 +35,6 @@ export function CustomerProfileDropdown() {
     openTutorial,
     isLoading: isOnboardingLoading,
   } = useCustomerOnboarding();
-
-  // Hook para gerenciar notificação de endereço incompleto
-  const { showAddressNotification } = useAddressNotification();
 
   if (!currentCustomer) {
     return null;
@@ -196,22 +192,10 @@ export function CustomerProfileDropdown() {
                 onClick={() => setAddressOpen(true)}
                 variant="outline"
                 size="sm"
-                className="w-full flex items-center justify-center gap-2 relative"
+                className="w-full flex items-center justify-center gap-2"
               >
                 <MapPin className="w-4 h-4" />
                 Meu Endereço
-                {showAddressNotification && (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                    className="absolute -top-1 -right-1"
-                  >
-                    <div className="h-4 min-w-4 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold p-0">
-                      !
-                    </div>
-                  </motion.div>
-                )}
               </Button>
               <Button
                 id="btn-historico"
