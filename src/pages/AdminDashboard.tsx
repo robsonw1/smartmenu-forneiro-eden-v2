@@ -1985,7 +1985,7 @@ const AdminDashboard = () => {
               {/* Quick Preview */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Visualização Rápida</CardTitle>
+                  <CardTitle className="text-base">Tamanhos recomendados para uso comercial</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-4">
