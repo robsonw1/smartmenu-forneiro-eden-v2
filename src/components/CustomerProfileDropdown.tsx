@@ -7,7 +7,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Progress } from '@/components/ui/progress';
-import { LogOut, Sparkles, Gift, Clock, MapPin, Package, HelpCircle } from 'lucide-react';
+import { LogOut, Sparkles, Gift, Clock, MapPin, Package, HelpCircle, Download } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { CustomerHistoryDrawer } from '@/components/CustomerHistoryDrawer';
 import { CustomerOrdersDrawer } from '@/components/CustomerOrdersDrawer';
@@ -99,6 +99,11 @@ export function CustomerProfileDropdown() {
 
   const handleAddressOpen = () => {
     setAddressOpen(true);
+  };
+
+  const handleDownloadApp = () => {
+    // Abrir URL atual em nova aba para download/instalação
+    window.open(window.location.href, '_blank');
   };
 
   const getInitials = (name: string) => {
@@ -299,6 +304,17 @@ export function CustomerProfileDropdown() {
               >
                 <LogOut className="w-4 h-4" />
                 Sair da Conta
+              </Button>
+
+              <Button
+                id="btn-baixar-app"
+                onClick={handleDownloadApp}
+                variant="outline"
+                size="sm"
+                className="w-full flex items-center justify-center gap-2 bg-primary/5 border-primary/30 hover:bg-primary/10"
+              >
+                <Download className="w-4 h-4" />
+                Baixar App
               </Button>
 
               {/* Botão de Ajuda (Tutorial) */}
