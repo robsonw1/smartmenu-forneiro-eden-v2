@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { ProductCard } from '@/components/ProductCard';
-import { Gift, Tag, Pizza, Crown, Star, Cake, GlassWater } from 'lucide-react';
+import { Gift, Tag, Pizza, Crown, Star, Cake, GlassWater, Truck, Store } from 'lucide-react';
 import { useCatalogStore } from '@/store/useCatalogStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 
 const categories = [
   { id: 'combos', label: 'Combos', icon: Gift },
@@ -17,6 +19,10 @@ const categories = [
 export function ProductCatalog() {
   const [activeTab, setActiveTab] = useState('combos');
   const productsById = useCatalogStore((s) => s.productsById);
+  const deliveryTimeMin = useSettingsStore((s) => s.settings.deliveryTimeMin);
+  const deliveryTimeMax = useSettingsStore((s) => s.settings.deliveryTimeMax);
+  const pickupTimeMin = useSettingsStore((s) => s.settings.pickupTimeMin);
+  const pickupTimeMax = useSettingsStore((s) => s.settings.pickupTimeMax);
 
   const products = useMemo(() => Object.values(productsById), [productsById]);
   const getByCategory = useMemo(() => {
@@ -37,9 +43,32 @@ export function ProductCatalog() {
           <h2 className="font-heading text-3xl md:text-4xl font-bold text-foreground mb-3">
             Nosso Cardápio
           </h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
             A Pizza mais recheada da cidade 🇮🇹.
           </p>
+
+          {/* Delivery & Pickup Badges */}
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Badge
+              variant="outline"
+              className="gap-2 bg-gradient-to-r from-blue-500/10 to-blue-600/10 border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950 cursor-default"
+            >
+              <Truck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span className="text-xs font-semibold">
+                {deliveryTimeMin}–{deliveryTimeMax}min
+              </span>
+            </Badge>
+            
+            <Badge
+              variant="outline"
+              className="gap-2 bg-gradient-to-r from-amber-500/10 to-amber-600/10 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950 cursor-default"
+            >
+              <Store className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span className="text-xs font-semibold">
+                {pickupTimeMin}–{pickupTimeMax}min
+              </span>
+            </Badge>
+          </div>
         </div>
 
         {/* Category Tabs */}
