@@ -17,6 +17,7 @@ import { useCustomerOnboarding } from '@/hooks/use-customer-onboarding';
 import { useProfileFirstAccess } from '@/hooks/use-profile-first-access';
 import { useAddressNotification } from '@/hooks/use-address-notification';
 import { useOrdersNotification } from '@/hooks/use-orders-notification';
+import { usePWAInstall } from '@/hooks/use-pwa-install';
 
 export function CustomerProfileDropdown() {
   const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
@@ -26,6 +27,9 @@ export function CustomerProfileDropdown() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(false);
   const [addressOpen, setAddressOpen] = useState(false);
+
+  // Hook para gerenciar PWA install
+  const { canInstall, isInstalled, isInstalling, triggerInstall } = usePWAInstall();
 
   // Hook para gerenciar onboarding
   const {
@@ -101,9 +105,9 @@ export function CustomerProfileDropdown() {
     setAddressOpen(true);
   };
 
-  const handleDownloadApp = () => {
-    // Abrir URL atual em nova aba para download/instalação
-    window.open(window.location.href, '_blank');
+  const handleDownloadApp = async () => {
+    // Disparar o prompt de instalação nativo do navegador
+    await triggerInstall();
   };
 
   const getInitials = (name: string) => {
@@ -306,16 +310,29 @@ export function CustomerProfileDropdown() {
                 Sair da Conta
               </Button>
 
-              <Button
-                id="btn-baixar-app"
-                onClick={handleDownloadApp}
-                variant="outline"
-                size="sm"
-                className="w-full flex items-center justify-center gap-2 bg-primary/5 border-primary/30 hover:bg-primary/10"
-              >
-                <Download className="w-4 h-4" />
-                Baixar App
-              </Button>
+              {/* Botão Baixar App - Apenas quando PWA pode ser instalado */}
+              {canInstall && !isInstalled && (
+                <Button
+                  id="btn-baixar-app"
+                  onClick={handleDownloadApp}
+                  disabled={isInstalling}
+                  variant="outline"
+                  size="sm"
+                  className="w-full flex items-center justify-center gap-2 bg-primary/5 border-primary/30 hover:bg-primary/10 disabled:opacity-50"
+                >
+                  <Download className="w-4 h-4" />
+                  {isInstalling ? 'Instalando...' : 'Baixar App'}
+                </Button>
+              )}
+
+              {/* Mensagem quando já instalado */}
+              {isInstalled && (
+                <div className="w-full text-center p-3 bg-green-500/10 border border-green-500/30 rounded-md">
+                  <p className="text-xs text-green-700 dark:text-green-400 font-medium">
+                    ✅ App instalado com sucesso!
+                  </p>
+                </div>
+              )}
 
               {/* Botão de Ajuda (Tutorial) */}
               <div className="pt-2 border-t">
