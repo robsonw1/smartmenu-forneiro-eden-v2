@@ -50,7 +50,7 @@ export function Header({ onLoginClick }: HeaderProps) {
             </a>
           </nav>
 
-          {/* Theme Toggle, Login/Profile & Cart Button */}
+          {/* Theme Toggle, Create App, Login/Profile & Cart Button */}
           <div className="flex items-center gap-2 md:gap-4">
             <Button
               id="btn-theme-toggle"
@@ -65,6 +65,20 @@ export function Header({ onLoginClick }: HeaderProps) {
                 <Sun className="w-5 h-5" />
               )}
             </Button>
+
+            {/* Botão "Criar App" - Mostrar para não logados */}
+            {!currentCustomer && (
+              <Button
+                asChild
+                variant="default"
+                size="sm"
+                className="hidden md:flex items-center gap-2 bg-primary hover:bg-primary/90"
+              >
+                <Link to="/onboarding">
+                  <span className="text-xs">🚀 Criar App</span>
+                </Link>
+              </Button>
+            )}
 
             {/* Mostrar Profile Dropdown quando logado */}
             {currentCustomer ? (
@@ -160,16 +174,27 @@ export function Header({ onLoginClick }: HeaderProps) {
                   </Badge>
                 </div>
                 {!currentCustomer && (
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start px-4 py-2 text-sm font-medium text-muted-foreground hover:text-primary hover:bg-secondary rounded-lg transition-colors"
-                    onClick={() => {
-                      onLoginClick?.();
-                      setIsMobileMenuOpen(false);
-                    }}
-                  >
-                    Entrar
-                  </Button>
+                  <>
+                    <Button
+                      asChild
+                      className="w-full justify-center px-4 py-2 text-sm font-bold bg-primary hover:bg-primary/90 rounded-lg transition-colors"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <Link to="/onboarding">
+                        🚀 Criar Meu App
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start px-4 py-2 text-sm font-medium text-muted-foreground hover:text-primary hover:bg-secondary rounded-lg transition-colors"
+                      onClick={() => {
+                        onLoginClick?.();
+                        setIsMobileMenuOpen(false);
+                      }}
+                    >
+                      Entrar
+                    </Button>
+                  </>
                 )}
               </div>
             </motion.nav>
