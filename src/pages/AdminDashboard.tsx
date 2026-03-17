@@ -1973,36 +1973,36 @@ const AdminDashboard = () => {
 
           {/* QR Code Tab */}
           <TabsContent value="qrcode">
-            <div className="space-y-8 max-w-3xl">
+            <div className="space-y-8 max-w-2xl">
               {/* Header */}
               <div>
                 <h2 className="text-2xl font-semibold mb-2">📱 QR Code do App</h2>
                 <p className="text-sm text-muted-foreground">
-                  Baixe o QR Code em diferentes tamanhos para usar em panfletos, redes sociais e telas da loja.
+                  Visualize e baixe o QR Code em diferentes formatos para suas campanhas de marketing.
                 </p>
               </div>
 
               {/* Quick Preview */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Preview Rápido</CardTitle>
+                  <CardTitle className="text-base">Visualização Rápida</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-2 gap-4">
                     {/* Small - Social Media */}
-                    <div className="flex flex-col items-center space-y-3 p-4 bg-muted/30 rounded-lg">
-                      <p className="font-medium text-sm">Social Media</p>
-                      <div className="bg-secondary p-2 rounded">
+                    <div className="flex flex-col items-center space-y-2 p-3 bg-muted/20 rounded">
+                      <p className="font-medium text-xs text-center">Redes Sociais</p>
+                      <div className="bg-white p-2 rounded border">
                         <QRCodeDisplay size={100} showControls={false} />
                       </div>
                       <p className="text-xs text-muted-foreground">100×100px</p>
                     </div>
 
                     {/* Medium - Flyers */}
-                    <div className="flex flex-col items-center space-y-3 p-4 bg-muted/30 rounded-lg">
-                      <p className="font-medium text-sm">Panfletos</p>
-                      <div className="bg-secondary p-3 rounded">
-                        <QRCodeDisplay size={300} showControls={false} />
+                    <div className="flex flex-col items-center space-y-2 p-3 bg-muted/20 rounded">
+                      <p className="font-medium text-xs text-center">Panfletos</p>
+                      <div className="bg-white p-2 rounded border">
+                        <QRCodeDisplay size={100} showControls={false} />
                       </div>
                       <p className="text-xs text-muted-foreground">300×300px</p>
                     </div>
@@ -2013,8 +2013,8 @@ const AdminDashboard = () => {
               {/* Download Section */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Baixar QR Code</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-2">Selecione o tamanho e formato abaixo</p>
+                  <CardTitle className="text-base">Baixar QR Code (300×300px)</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-2">Clique nos botões abaixo para baixar</p>
                 </CardHeader>
                 <CardContent>
                   <QRCodeDisplay size={300} showControls={true} />
@@ -2024,27 +2024,21 @@ const AdminDashboard = () => {
               {/* Sizes Reference */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Recomendações de Uso</CardTitle>
+                  <CardTitle className="text-base">Como Usar</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex gap-4 p-3 bg-muted/30 rounded-lg">
-                      <div>
-                        <p className="font-medium text-sm">100×100px</p>
-                        <p className="text-xs text-muted-foreground mt-1">Redes sociais, stories, posts pequenos</p>
-                      </div>
+                  <div className="space-y-3 text-sm">
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded border border-blue-200 dark:border-blue-800/30">
+                      <p className="font-medium text-blue-900 dark:text-blue-200">📱 100×100px</p>
+                      <p className="text-xs text-blue-800 dark:text-blue-300 mt-1">Perfeito para: redes sociais, stories, posts, footers</p>
                     </div>
-                    <div className="flex gap-4 p-3 bg-muted/30 rounded-lg">
-                      <div>
-                        <p className="font-medium text-sm">300×300px</p>
-                        <p className="text-xs text-muted-foreground mt-1">Panfletos, cardápios digitais, emails</p>
-                      </div>
+                    <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded border border-green-200 dark:border-green-800/30">
+                      <p className="font-medium text-green-900 dark:text-green-200">🎨 300×300px</p>
+                      <p className="text-xs text-green-800 dark:text-green-300 mt-1">Perfeito para: panfletos, cardápios, whatsapp, emails</p>
                     </div>
-                    <div className="flex gap-4 p-3 bg-muted/30 rounded-lg">
-                      <div>
-                        <p className="font-medium text-sm">500×500px+</p>
-                        <p className="text-xs text-muted-foreground mt-1">Customize no editor - Canva, Photoshop, etc</p>
-                      </div>
+                    <div className="p-3 bg-purple-50 dark:bg-purple-950/20 rounded border border-purple-200 dark:border-purple-800/30">
+                      <p className="font-medium text-purple-900 dark:text-purple-200">✨ PNG vs SVG</p>
+                      <p className="text-xs text-purple-800 dark:text-purple-300 mt-1">Use <strong>SVG</strong> para impressão profissional - redimensiona sem perder qualidade em Canva/Photoshop</p>
                     </div>
                   </div>
                 </CardContent>
