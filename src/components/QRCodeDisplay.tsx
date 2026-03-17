@@ -1,4 +1,4 @@
-import { QRCodeSVG as QRCode } from 'qrcode.react';
+import { QRCodeCanvas } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Download, QrCode } from 'lucide-react';
@@ -80,7 +80,7 @@ export function QRCodeDisplay({ size = 200, showControls = true, label }: QRCode
             {/* QR Code Display */}
             <div className="flex justify-center p-8 bg-secondary rounded-lg">
               <div ref={qrRef}>
-                <QRCode
+                <QRCodeCanvas
                   value={appUrl}
                   size={size}
                   level="H"
@@ -133,7 +133,7 @@ export function QRCodeDisplay({ size = 200, showControls = true, label }: QRCode
   // Modo simples (sem controles)
   return (
     <div ref={qrRef}>
-      <QRCode
+      <QRCodeCanvas
         value={appUrl}
         size={size}
         level="H"
