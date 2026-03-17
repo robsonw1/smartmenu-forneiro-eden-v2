@@ -214,8 +214,18 @@ export function ProductModal() {
       return;
     }
 
+    // DEBUG: Log para verificar estado
+    console.log('🔍 [ProductModal] DEBUG:', {
+      showDrinkSelection,
+      selectedDrinkId,
+      isPizza,
+      isCombo,
+      productCategory: selectedProduct?.category,
+    });
+
     // Validate drink selection (mandatory for pizzas and combos)
     if (showDrinkSelection && !selectedDrinkId) {
+      console.warn('❌ [ProductModal] Bebida não selecionada! Bloqueando adição.');
       toast.error('Escolha sua bebida ou selecione não quero bebida');
       return;
     }
