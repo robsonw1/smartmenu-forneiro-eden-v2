@@ -641,9 +641,18 @@ export function SchedulingCheckoutModal() {
       case 'address':
         // Skip validation if pickup
         if (deliveryType === 'pickup') return true;
-        // Validate address fields only for delivery
-        if (!address.street || !address.number || !selectedNeighborhood) {
-          toast.error('Por favor, preencha o endereço completo ou selecione/adicione seu bairro');
+        
+        // Validate each address field with specific error messages
+        if (!selectedNeighborhood) {
+          toast.error('Selecione um bairro');
+          return false;
+        }
+        if (!address.street || address.street.trim() === '') {
+          toast.error('Preencha o nome da rua');
+          return false;
+        }
+        if (!address.number || address.number.trim() === '') {
+          toast.error('Preencha o número da casa');
           return false;
         }
         return true;
