@@ -277,13 +277,14 @@ export function CheckoutModal() {
         zipCode: currentCustomer.zipCode || '',
       });
 
-      // Pre-select neighborhood
-      if (currentCustomer.neighborhood) {
+      // Pre-select neighborhood por nome
+      if (currentCustomer.neighborhood && activeNeighborhoods.length > 0) {
         const matchingNeighborhood = activeNeighborhoods.find(
           (n) => n.name === currentCustomer.neighborhood
         );
         if (matchingNeighborhood) {
           setSelectedNeighborhood(matchingNeighborhood);
+          setNeighborhoodInput(matchingNeighborhood.name);
         }
       }
 
@@ -291,8 +292,42 @@ export function CheckoutModal() {
       if (currentCustomer.street) {
         setSaveAsDefault(true);
       }
+    } else if (isCheckoutOpen && !currentCustomer && !address.street) {
+      // Para clientes NÃO-logados: carregar do localStorage
+      const savedAddress = localStorage.getItem('default-address');
+      if (savedAddress) {
+        try {
+          const parsedAddress = JSON.parse(savedAddress);
+          setAddress({
+            street: parsedAddress.street || '',
+            number: parsedAddress.number || '',
+            complement: parsedAddress.complement || '',
+            reference: parsedAddress.reference || '',
+            city: parsedAddress.city || 'São Paulo',
+            zipCode: parsedAddress.zipCode || '',
+          });
+
+          // Pre-select neighborhood por ID (mais confiável)
+          if (parsedAddress.neighborhoodId && activeNeighborhoods.length > 0) {
+            const matchingNeighborhood = activeNeighborhoods.find(
+              (n) => n.id === parsedAddress.neighborhoodId
+            );
+            if (matchingNeighborhood) {
+              setSelectedNeighborhood(matchingNeighborhood);
+              setNeighborhoodInput(matchingNeighborhood.name);
+            }
+          }
+
+          // Se tem endereço padrão salvo, marca checkbox
+          if (parsedAddress.street) {
+            setSaveAsDefault(true);
+          }
+        } catch (error) {
+          console.error('Erro ao carregar endereço padrão do localStorage:', error);
+        }
+      }
     }
-  }, [isCheckoutOpen, currentCustomer?.street]);
+  }, [isCheckoutOpen, currentCustomer?.street, activeNeighborhoods.length]);
 
   // Resetar pontos a resgatar quando checkout abre
   useEffect(() => {
@@ -587,19 +622,33 @@ export function CheckoutModal() {
         // Skip validation if pickup
         if (deliveryType === 'pickup') return true;
         
+        // 🔍 DEBUG: Log values before validation
+        console.log('🔍 [VALIDATION] Validando address step:', {
+          selectedNeighborhood: selectedNeighborhood,
+          neighborhoodInput: neighborhoodInput,
+          street: address.street,
+          number: address.number,
+          deliveryType: deliveryType,
+        });
+        
         // Validate each address field with specific error messages
         if (!selectedNeighborhood) {
+          console.log('❌ [VALIDATION] Falha: selectedNeighborhood é null/undefined');
           toast.error('Selecione um bairro');
           return false;
         }
         if (!address.street || address.street.trim() === '') {
+          console.log('❌ [VALIDATION] Falha: street está vazio');
           toast.error('Preencha o nome da rua');
           return false;
         }
         if (!address.number || address.number.trim() === '') {
+          console.log('❌ [VALIDATION] Falha: number está vazio');
           toast.error('Preencha o número da casa');
           return false;
         }
+        
+        console.log('✅ [VALIDATION] Address step passou em todas as validações');
         return true;
       case 'payment':
         // CPF é obrigatório APENAS para PIX
@@ -631,18 +680,6 @@ export function CheckoutModal() {
     }
     
     const currentIndex = steps.indexOf(step as any);
-    
-    // DEBUG: Log estado antes de validar
-    if (step === 'address') {
-      console.log('🔍 [CheckoutModal - nextStep] Step Address Debug:', {
-        deliveryType,
-        step,
-        selectedNeighborhood: selectedNeighborhood?.name,
-        street: address.street,
-        number: address.number,
-        validation: `selectedNeighborhood=${!!selectedNeighborhood}, street=${!!address.street?.trim()}, number=${!!address.number?.trim()}`,
-      });
-    }
     
     if (!validateStep(step)) return;
     
@@ -1147,20 +1184,43 @@ export function CheckoutModal() {
         console.warn('⚠️ [LOYALTY] Nenhum email encontrado para processar pontos');
       }
       
-      // Save address as default if requested and customer exists
-      if (saveAsDefault && currentCustomer && deliveryType === 'delivery') {
-        try {
-          await saveDefaultAddress({
-            street: address.street,
-            number: address.number,
-            complement: address.complement || '',
-            neighborhood: selectedNeighborhood?.name || '',
-            city: address.city || 'São Paulo',
-            zipCode: address.zipCode || '',
-          });
-        } catch (error) {
-          console.error('Erro ao salvar endereço:', error);
-          // Don't fail the order if address save fails
+      // Save address as default if requested
+      if (saveAsDefault && deliveryType === 'delivery') {
+        if (currentCustomer) {
+          // Para clientes logados: salvar no Supabase
+          try {
+            await saveDefaultAddress({
+              street: address.street,
+              number: address.number,
+              complement: address.complement || '',
+              neighborhood: selectedNeighborhood?.name || '',
+              city: address.city || 'São Paulo',
+              zipCode: address.zipCode || '',
+            });
+          } catch (error) {
+            console.error('Erro ao salvar endereço no Supabase:', error);
+            // Don't fail the order if address save fails
+          }
+        } else {
+          // Para clientes NÃO-logados: salvar no localStorage
+          try {
+            const addressData = {
+              street: address.street,
+              number: address.number,
+              complement: address.complement || '',
+              reference: address.reference || '',
+              neighborhoodId: selectedNeighborhood?.id || null,
+              neighborhoodName: selectedNeighborhood?.name || '',
+              city: address.city || 'São Paulo',
+              zipCode: address.zipCode || '',
+              savedAt: new Date().toISOString(),
+            };
+            localStorage.setItem('default-address', JSON.stringify(addressData));
+            console.log('✅ Endereço padrão salvo no localStorage:', addressData);
+          } catch (error) {
+            console.error('Erro ao salvar endereço no localStorage:', error);
+            // Don't fail the order if address save fails
+          }
         }
       }
       
