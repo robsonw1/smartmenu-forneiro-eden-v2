@@ -331,13 +331,14 @@ export function SchedulingCheckoutModal() {
         zipCode: currentCustomer.zipCode || '',
       });
 
-      // Pre-select neighborhood
-      if (currentCustomer.neighborhood) {
+      // Pre-select neighborhood por nome
+      if (currentCustomer.neighborhood && activeNeighborhoods.length > 0) {
         const matchingNeighborhood = activeNeighborhoods.find(
           (n) => n.name === currentCustomer.neighborhood
         );
         if (matchingNeighborhood) {
           setSelectedNeighborhood(matchingNeighborhood);
+          setNeighborhoodInput(matchingNeighborhood.name);
         }
       }
 
@@ -345,8 +346,42 @@ export function SchedulingCheckoutModal() {
       if (currentCustomer.street) {
         setSaveAsDefault(true);
       }
+    } else if (isSchedulingCheckoutOpen && !currentCustomer && !address.street) {
+      // Para clientes NÃO-logados: carregar do localStorage
+      const savedAddress = localStorage.getItem('default-address');
+      if (savedAddress) {
+        try {
+          const parsedAddress = JSON.parse(savedAddress);
+          setAddress({
+            street: parsedAddress.street || '',
+            number: parsedAddress.number || '',
+            complement: parsedAddress.complement || '',
+            reference: parsedAddress.reference || '',
+            city: parsedAddress.city || 'São Paulo',
+            zipCode: parsedAddress.zipCode || '',
+          });
+
+          // Pre-select neighborhood por ID (mais confiável)
+          if (parsedAddress.neighborhoodId && activeNeighborhoods.length > 0) {
+            const matchingNeighborhood = activeNeighborhoods.find(
+              (n) => n.id === parsedAddress.neighborhoodId
+            );
+            if (matchingNeighborhood) {
+              setSelectedNeighborhood(matchingNeighborhood);
+              setNeighborhoodInput(matchingNeighborhood.name);
+            }
+          }
+
+          // Se tem endereço padrão salvo, marca checkbox
+          if (parsedAddress.street) {
+            setSaveAsDefault(true);
+          }
+        } catch (error) {
+          console.error('Erro ao carregar endereço padrão do localStorage:', error);
+        }
+      }
     }
-  }, [isSchedulingCheckoutOpen, currentCustomer?.street]);
+  }, [isSchedulingCheckoutOpen, currentCustomer?.street, activeNeighborhoods.length]);
 
   // Resetar pontos a resgatar APENAS quando checkout fecha
   useEffect(() => {
@@ -1205,20 +1240,43 @@ export function SchedulingCheckoutModal() {
         console.warn('⚠️ [LOYALTY] Nenhum email encontrado para processar pontos');
       }
       
-      // Save address as default if requested and customer exists
-      if (saveAsDefault && currentCustomer && deliveryType === 'delivery') {
-        try {
-          await saveDefaultAddress({
-            street: address.street,
-            number: address.number,
-            complement: address.complement || '',
-            neighborhood: selectedNeighborhood?.name || '',
-            city: address.city || 'São Paulo',
-            zipCode: address.zipCode || '',
-          });
-        } catch (error) {
-          console.error('Erro ao salvar endereço:', error);
-          // Don't fail the order if address save fails
+      // Save address as default if requested
+      if (saveAsDefault && deliveryType === 'delivery') {
+        if (currentCustomer) {
+          // Para clientes logados: salvar no Supabase
+          try {
+            await saveDefaultAddress({
+              street: address.street,
+              number: address.number,
+              complement: address.complement || '',
+              neighborhood: selectedNeighborhood?.name || '',
+              city: address.city || 'São Paulo',
+              zipCode: address.zipCode || '',
+            });
+          } catch (error) {
+            console.error('Erro ao salvar endereço no Supabase:', error);
+            // Don't fail the order if address save fails
+          }
+        } else {
+          // Para clientes NÃO-logados: salvar no localStorage
+          try {
+            const addressData = {
+              street: address.street,
+              number: address.number,
+              complement: address.complement || '',
+              reference: address.reference || '',
+              neighborhoodId: selectedNeighborhood?.id || null,
+              neighborhoodName: selectedNeighborhood?.name || '',
+              city: address.city || 'São Paulo',
+              zipCode: address.zipCode || '',
+              savedAt: new Date().toISOString(),
+            };
+            localStorage.setItem('default-address', JSON.stringify(addressData));
+            console.log('✅ Endereço padrão salvo no localStorage:', addressData);
+          } catch (error) {
+            console.error('Erro ao salvar endereço no localStorage:', error);
+            // Don't fail the order if address save fails
+          }
         }
       }
       
