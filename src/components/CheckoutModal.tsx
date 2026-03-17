@@ -632,6 +632,18 @@ export function CheckoutModal() {
     
     const currentIndex = steps.indexOf(step as any);
     
+    // DEBUG: Log estado antes de validar
+    if (step === 'address') {
+      console.log('🔍 [CheckoutModal - nextStep] Step Address Debug:', {
+        deliveryType,
+        step,
+        selectedNeighborhood: selectedNeighborhood?.name,
+        street: address.street,
+        number: address.number,
+        validation: `selectedNeighborhood=${!!selectedNeighborhood}, street=${!!address.street?.trim()}, number=${!!address.number?.trim()}`,
+      });
+    }
+    
     if (!validateStep(step)) return;
     
     if (currentIndex < steps.length - 1) {
