@@ -15,6 +15,8 @@ import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import Index from "./pages/Index.tsx";
 import AdminLogin from "./pages/AdminLogin.tsx";
 import AdminDashboard from "./pages/AdminDashboard.tsx";
+import ClientOnboarding from "./pages/ClientOnboarding.tsx";
+import ClientOnboardingSuccess from "./pages/ClientOnboardingSuccess.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -36,6 +38,8 @@ const AppContent = () => {
   return (
     <Routes>
       <Route path="/" element={<Index />} />
+      <Route path="/onboarding" element={<ClientOnboarding />} />
+      <Route path="/onboarding/success" element={<ClientOnboardingSuccess />} />
       <Route path="/admin" element={<AdminLogin />} />
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
