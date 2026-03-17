@@ -84,7 +84,7 @@ export function QRCodeDisplay({ size = 200, showControls = true, label }: QRCode
 
             {/* Download Buttons */}
             <div className="space-y-3">
-              <p className="text-sm font-medium">Baixar QR Code ({size}x{size}px):</p>
+              <p className="text-sm font-medium">Baixar QR Code ({size}×{size}px):</p>
               <div className="grid grid-cols-2 gap-3">
                 <Button
                   onClick={() => downloadQR('png')}
@@ -100,12 +100,14 @@ export function QRCodeDisplay({ size = 200, showControls = true, label }: QRCode
                   className="gap-2"
                 >
                   <Download className="w-4 h-4" />
-                  SVG ✨
+                  SVG
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                💡 SVG é melhor para imprimir - redimensiona sem perder qualidade
-              </p>
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 p-3 rounded-lg">
+                <p className="text-xs text-amber-900 dark:text-amber-200">
+                  ✨ <strong>SVG é melhor para imprimir:</strong> Redimensiona sem perder qualidade. Use em Canva, Photoshop, panfletos profissionais.
+                </p>
+              </div>
             </div>
           </div>
         </CardContent>
