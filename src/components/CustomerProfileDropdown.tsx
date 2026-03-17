@@ -1,8 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useLoyaltyStore } from '@/store/useLoyaltyStore';
-import { useAddressNotification } from '@/hooks/use-address-notification';
-import { useProfileFirstAccess } from '@/hooks/use-profile-first-access';
-import { useOrdersNotification } from '@/hooks/use-orders-notification';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -17,6 +14,9 @@ import { CustomerOrdersDrawer } from '@/components/CustomerOrdersDrawer';
 import { DeliveryAddressDialog } from '@/components/DeliveryAddressDialog';
 import { CustomerOnboardingTutorial } from '@/components/CustomerOnboardingTutorial';
 import { useCustomerOnboarding } from '@/hooks/use-customer-onboarding';
+import { useProfileFirstAccess } from '@/hooks/use-profile-first-access';
+import { useAddressNotification } from '@/hooks/use-address-notification';
+import { useOrdersNotification } from '@/hooks/use-orders-notification';
 
 export function CustomerProfileDropdown() {
   const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
@@ -39,16 +39,18 @@ export function CustomerProfileDropdown() {
     isLoading: isOnboardingLoading,
   } = useCustomerOnboarding();
 
-  // Hook para rastrear primeiro acesso ao perfil (pulse na primeira visita)
+  // Hook para rastrear primeiro acesso ao perfil
   const {
     showPulseNotification,
     markProfileAsViewed,
   } = useProfileFirstAccess();
 
-  // Hook para gerenciar notificação de endereço incompleto
-  const { showAddressNotification } = useAddressNotification();
+  // Hook para rastrear notificação de endereço incompleto
+  const {
+    showAddressNotification,
+  } = useAddressNotification();
 
-  // Hook para gerenciar notificação de pedidos (pulse quando há novo pedido/status)
+  // Hook para rastrear notificação de pedidos
   const {
     showOrdersNotification,
     markOrdersAsViewed,
@@ -95,6 +97,10 @@ export function CustomerProfileDropdown() {
     await markOrdersAsViewed();
   };
 
+  const handleAddressOpen = () => {
+    setAddressOpen(true);
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -108,7 +114,7 @@ export function CustomerProfileDropdown() {
     <>
       <Popover open={isOpen} onOpenChange={(open) => {
         setIsOpen(open);
-        // Quando abrir o popover, marcar primeira visita como visualizada
+        // Quando abrir o popover, só marcar primeira visita como visualizada
         if (open && showPulseNotification) {
           markProfileAsViewed();
         }
@@ -203,7 +209,7 @@ export function CustomerProfileDropdown() {
               <div className="flex items-center justify-between bg-gradient-to-r from-green-500/10 to-green-400/5 rounded-lg p-3 border border-green-500/20">
                 <div className="flex items-center gap-2">
                   <Gift className="w-4 h-4 text-green-500" />
-                  <span className="text-sm font-medium">Economizado</span>
+                  <span className="text-sm font-medium">Cashback</span>
                 </div>
                 <div className="text-right">
                   <p className="font-bold text-sm text-green-600">
@@ -242,32 +248,36 @@ export function CustomerProfileDropdown() {
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="ml-auto"
-                  >
-                    <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-                  </motion.div>
+                    className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse ml-auto"
+                  />
                 )}
               </Button>
               <Button
                 id="btn-meu-endereco"
-                onClick={() => setAddressOpen(true)}
+                onClick={handleAddressOpen}
                 variant="outline"
                 size="sm"
-                className="w-full flex items-center justify-center gap-2 relative"
+                className={`w-full flex items-center justify-center gap-2 relative ${
+                  showAddressNotification ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : ''
+                }`}
               >
-                <MapPin className="w-4 h-4" />
+                <div className="relative">
+                  <MapPin className="w-4 h-4" />
+                  {showAddressNotification && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute -top-2 -right-2 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"
+                    />
+                  )}
+                </div>
                 Meu Endereço
                 {showAddressNotification && (
                   <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                    className="absolute -top-1 -right-1"
-                  >
-                    <div className="h-4 min-w-4 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold p-0">
-                      !
-                    </div>
-                  </motion.div>
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse ml-auto"
+                  />
                 )}
               </Button>
               <Button
