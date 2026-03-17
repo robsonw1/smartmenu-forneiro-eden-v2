@@ -15,39 +15,54 @@ export function QRCodeDisplay({ size = 200, showControls = true, label }: QRCode
   const qrRef = useRef<HTMLDivElement>(null);
   const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
 
-  const downloadQR = (format: 'png' | 'svg') => {
-    const canvas = qrRef.current?.querySelector('canvas') as HTMLCanvasElement | null;
-    
-    if (!canvas) {
-      toast.error('Não foi possível gerar o QR Code');
-      return;
-    }
+  const downloadQR = async (format: 'png' | 'svg') => {
+    try {
+      // Pequeno delay para garantir que o elemento foi renderizado
+      await new Promise(resolve => setTimeout(resolve, 100));
 
-    if (format === 'png') {
-      const url = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `qrcode-forneiro-${size}x${size}.png`;
-      link.click();
-      toast.success('QR Code PNG baixado!');
-    } else if (format === 'svg') {
-      // Gerar SVG do QR Code
-      const svgElement = qrRef.current?.querySelector('svg') as SVGElement | null;
-      if (!svgElement) {
-        toast.error('Não foi possível gerar SVG');
+      if (!qrRef.current) {
+        toast.error('Componente não foi encontrado');
         return;
       }
 
-      const serializer = new XMLSerializer();
-      const svgString = serializer.serializeToString(svgElement);
-      const blob = new Blob([svgString], { type: 'image/svg+xml' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `qrcode-forneiro-${size}x${size}.svg`;
-      link.click();
-      URL.revokeObjectURL(url);
-      toast.success('QR Code SVG baixado! ✨ Melhor para imprimir');
+      if (format === 'png') {
+        const canvas = qrRef.current.querySelector('canvas') as HTMLCanvasElement | null;
+        if (!canvas) {
+          toast.error('Canvas não gerado. Tente novamente.');
+          return;
+        }
+
+        const url = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `qrcode-forneiro-${size}x${size}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success('✓ QR Code PNG baixado!');
+      } else if (format === 'svg') {
+        const svgElement = qrRef.current.querySelector('svg') as SVGElement | null;
+        if (!svgElement) {
+          toast.error('SVG não gerado. Tente novamente.');
+          return;
+        }
+
+        const serializer = new XMLSerializer();
+        const svgString = serializer.serializeToString(svgElement);
+        const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `qrcode-forneiro-${size}x${size}.svg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        toast.success('✓ SVG baixado! Melhor para imprimir');
+      }
+    } catch (error) {
+      console.error('Erro ao baixar QR Code:', error);
+      toast.error('Erro ao processar download. Recarregue a página.');
     }
   };
 
