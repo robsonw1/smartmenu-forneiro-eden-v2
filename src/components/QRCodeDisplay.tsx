@@ -1,4 +1,4 @@
-import { QRCodeCanvas } from 'qrcode.react';
+import { QRCodeCanvas, QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Download, QrCode } from 'lucide-react';
@@ -12,7 +12,8 @@ interface QRCodeDisplayProps {
 }
 
 export function QRCodeDisplay({ size = 200, showControls = true, label }: QRCodeDisplayProps) {
-  const qrRef = useRef<HTMLDivElement>(null);
+  const qrCanvasRef = useRef<HTMLDivElement>(null);
+  const qrSvgRef = useRef<HTMLDivElement>(null);
   const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
 
   const downloadQR = async (format: 'png' | 'svg') => {
@@ -20,13 +21,12 @@ export function QRCodeDisplay({ size = 200, showControls = true, label }: QRCode
       // Pequeno delay para garantir que o elemento foi renderizado
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      if (!qrRef.current) {
-        toast.error('Componente não foi encontrado');
-        return;
-      }
-
       if (format === 'png') {
-        const canvas = qrRef.current.querySelector('canvas') as HTMLCanvasElement | null;
+        if (!qrCanvasRef.current) {
+          toast.error('Componente não foi encontrado');
+          return;
+        }
+        const canvas = qrCanvasRef.current.querySelector('canvas') as HTMLCanvasElement | null;
         if (!canvas) {
           toast.error('Canvas não gerado. Tente novamente.');
           return;
@@ -41,7 +41,11 @@ export function QRCodeDisplay({ size = 200, showControls = true, label }: QRCode
         document.body.removeChild(link);
         toast.success('✓ QR Code PNG baixado!');
       } else if (format === 'svg') {
-        const svgElement = qrRef.current.querySelector('svg') as SVGElement | null;
+        if (!qrSvgRef.current) {
+          toast.error('Componente não foi encontrado');
+          return;
+        }
+        const svgElement = qrSvgRef.current.querySelector('svg') as SVGElement | null;
         if (!svgElement) {
           toast.error('SVG não gerado. Tente novamente.');
           return;
@@ -77,9 +81,9 @@ export function QRCodeDisplay({ size = 200, showControls = true, label }: QRCode
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {/* QR Code Display */}
+            {/* QR Code Display (Canvas) */}
             <div className="flex justify-center p-8 bg-secondary rounded-lg">
-              <div ref={qrRef}>
+              <div ref={qrCanvasRef}>
                 <QRCodeCanvas
                   value={appUrl}
                   size={size}
@@ -89,6 +93,18 @@ export function QRCodeDisplay({ size = 200, showControls = true, label }: QRCode
                   fgColor="#000000"
                 />
               </div>
+            </div>
+
+            {/* SVG hidden for download */}
+            <div style={{ display: 'none' }} ref={qrSvgRef}>
+              <QRCodeSVG
+                value={appUrl}
+                size={size}
+                level="H"
+                includeMargin={true}
+                bgColor="#ffffff"
+                fgColor="#000000"
+              />
             </div>
 
             {/* URL Info */}
@@ -132,7 +148,7 @@ export function QRCodeDisplay({ size = 200, showControls = true, label }: QRCode
 
   // Modo simples (sem controles)
   return (
-    <div ref={qrRef}>
+    <div ref={qrCanvasRef}>
       <QRCodeCanvas
         value={appUrl}
         size={size}
