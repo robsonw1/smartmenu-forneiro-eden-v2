@@ -292,42 +292,83 @@ export function CheckoutModal() {
       if (currentCustomer.street) {
         setSaveAsDefault(true);
       }
-    } else if (isCheckoutOpen && !currentCustomer && !address.street) {
-      // Para clientes NÃO-logados: carregar do localStorage
-      const savedAddress = localStorage.getItem('default-address');
-      if (savedAddress) {
+    } else if (isCheckoutOpen && !currentCustomer) {
+      // Para clientes NÃO-logados: carregar dados de contato e endereço do localStorage
+      
+      // Carregar dados de contato (nome, telefone, email)
+      const savedContact = localStorage.getItem('default-contact');
+      if (savedContact && !customer.name) {
         try {
-          const parsedAddress = JSON.parse(savedAddress);
-          setAddress({
-            street: parsedAddress.street || '',
-            number: parsedAddress.number || '',
-            complement: parsedAddress.complement || '',
-            reference: parsedAddress.reference || '',
-            city: parsedAddress.city || 'São Paulo',
-            zipCode: parsedAddress.zipCode || '',
+          const parsedContact = JSON.parse(savedContact);
+          setCustomer({
+            name: parsedContact.name || '',
+            phone: parsedContact.phone || '',
+            email: parsedContact.email || '',
           });
-
-          // Pre-select neighborhood por ID (mais confiável)
-          if (parsedAddress.neighborhoodId && activeNeighborhoods.length > 0) {
-            const matchingNeighborhood = activeNeighborhoods.find(
-              (n) => n.id === parsedAddress.neighborhoodId
-            );
-            if (matchingNeighborhood) {
-              setSelectedNeighborhood(matchingNeighborhood);
-              setNeighborhoodInput(matchingNeighborhood.name);
-            }
-          }
-
-          // Se tem endereço padrão salvo, marca checkbox
-          if (parsedAddress.street) {
-            setSaveAsDefault(true);
-          }
+          console.log('✅ Dados de contato carregados do localStorage');
         } catch (error) {
-          console.error('Erro ao carregar endereço padrão do localStorage:', error);
+          console.error('Erro ao carregar dados de contato do localStorage:', error);
+        }
+      }
+      
+      // Carregar endereço
+      if (!address.street) {
+        const savedAddress = localStorage.getItem('default-address');
+        if (savedAddress) {
+          try {
+            const parsedAddress = JSON.parse(savedAddress);
+            setAddress({
+              street: parsedAddress.street || '',
+              number: parsedAddress.number || '',
+              complement: parsedAddress.complement || '',
+              reference: parsedAddress.reference || '',
+              city: parsedAddress.city || 'São Paulo',
+              zipCode: parsedAddress.zipCode || '',
+            });
+
+            // Pre-select neighborhood por ID (mais confiável)
+            if (parsedAddress.neighborhoodId && activeNeighborhoods.length > 0) {
+              const matchingNeighborhood = activeNeighborhoods.find(
+                (n) => n.id === parsedAddress.neighborhoodId
+              );
+              if (matchingNeighborhood) {
+                setSelectedNeighborhood(matchingNeighborhood);
+                setNeighborhoodInput(matchingNeighborhood.name);
+              }
+            }
+
+            // Se tem endereço padrão salvo, marca checkbox
+            if (parsedAddress.street) {
+              setSaveAsDefault(true);
+            }
+          } catch (error) {
+            console.error('Erro ao carregar endereço padrão do localStorage:', error);
+          }
         }
       }
     }
   }, [isCheckoutOpen, currentCustomer?.street, activeNeighborhoods.length]);
+
+  // Salvar dados de contato no localStorage para clientes NÃO-logados
+  useEffect(() => {
+    if (!isCheckoutOpen || currentCustomer || !customer.name || step !== 'contact') return;
+
+    // Se cliente não é logado E tem dados de contato preenchidos, salva no localStorage
+    if (customer.name.trim() && customer.phone.trim() && customer.email.trim()) {
+      try {
+        const contactData = {
+          name: customer.name,
+          phone: customer.phone,
+          email: customer.email,
+          savedAt: new Date().toISOString(),
+        };
+        localStorage.setItem('default-contact', JSON.stringify(contactData));
+        console.log('✅ Dados de contato salvos no localStorage:', contactData);
+      } catch (error) {
+        console.error('Erro ao salvar dados de contato no localStorage:', error);
+      }
+    }
+  }, [customer.name, customer.phone, customer.email, isCheckoutOpen, currentCustomer, step]);
 
   // Resetar pontos a resgatar quando checkout abre
   useEffect(() => {
@@ -634,7 +675,7 @@ export function CheckoutModal() {
         // Validate each address field with specific error messages
         if (!selectedNeighborhood) {
           console.log('❌ [VALIDATION] Falha: selectedNeighborhood é null/undefined');
-          toast.error('Selecione um bairro');
+          toast.error('Selecione ou adicione o seu Bairro');
           return false;
         }
         if (!address.street || address.street.trim() === '') {
