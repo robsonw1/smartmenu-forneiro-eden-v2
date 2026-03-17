@@ -1,11 +1,13 @@
-import { Instagram, Facebook, Phone, MapPin, Clock, LogIn, Lock } from 'lucide-react';
+import { Phone, MapPin, Clock, LogIn, Lock, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSettingsStore, WeekSchedule } from '@/store/useSettingsStore';
 import { useLoyaltyStore } from '@/store/useLoyaltyStore';
 import { CustomerProfileDropdown } from '@/components/CustomerProfileDropdown';
 import { ScheduleDialog } from '@/components/ScheduleDialog';
+import { QRCodeDisplay } from '@/components/QRCodeDisplay';
 import logoForneiro from '@/assets/logo-forneiro.jpg';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface FooterProps {
   onLoginClick?: () => void;
@@ -25,6 +27,33 @@ const dayLabels: Record<keyof WeekSchedule, string> = {
 export function Footer({ onLoginClick, onAdminClick }: FooterProps) {
   const settings = useSettingsStore((s) => s.settings);
   const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
+  const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+
+  const handleShareQR = async () => {
+    const shareText = `Peça sua pizza no ${settings.name}! 🍕 ${appUrl}`;
+
+    // Tentar usar Web Share API (mobile, mais bonito)
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${settings.name} - Pedir Pizza Online`,
+          text: shareText,
+          url: appUrl,
+        });
+        toast.success('Compartilhado com sucesso!');
+      } catch (error) {
+        console.log('Compartilhamento cancelado pelo usuário');
+      }
+    } else {
+      // Fallback: copiar para clipboard
+      try {
+        await navigator.clipboard.writeText(shareText);
+        toast.success('Link copiado! Cole em qualquer lugar');
+      } catch (error) {
+        toast.error('Erro ao copiar link');
+      }
+    }
+  };
 
   const buildScheduleString = () => {
     const schedule = settings.schedule;
@@ -98,22 +127,25 @@ export function Footer({ onLoginClick, onAdminClick }: FooterProps) {
             </div>
           </div>
 
-          {/* Social & Actions */}
+          {/* QR Code & App Download */}
           <div>
-            <h4 className="font-semibold mb-4">Redes Sociais</h4>
-            <div className="flex gap-3 mb-6">
-              <a
-                href="#"
-                className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
+            <h4 className="font-semibold mb-4">📱 Baixe Nosso App</h4>
+            <div className="flex flex-col items-center gap-3">
+              <div className="bg-secondary p-3 rounded-lg">
+                <QRCodeDisplay size={100} showControls={false} />
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                Scan para acessar de qualquer lugar
+              </p>
+              <Button
+                onClick={handleShareQR}
+                variant="outline"
+                size="sm"
+                className="gap-2 w-full"
               >
-                <Instagram className="w-5 h-5" />
-              </a>
-              <a
-                href="#"
-                className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
-              >
-                <Facebook className="w-5 h-5" />
-              </a>
+                <Share2 className="w-4 h-4" />
+                Compartilhar
+              </Button>
             </div>
           </div>
         </div>
