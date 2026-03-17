@@ -1973,43 +1973,82 @@ const AdminDashboard = () => {
 
           {/* QR Code Tab */}
           <TabsContent value="qrcode">
-            <div className="space-y-6">
+            <div className="space-y-8 max-w-3xl">
+              {/* Header */}
               <div>
-                <h2 className="text-xl font-semibold mb-2">Gerenciar QR Code do App</h2>
-                <p className="text-sm text-muted-foreground mb-6">
-                  Baixe o QR Code do seu app para usar em panfletos, telas e materiais de marketing.
+                <h2 className="text-2xl font-semibold mb-2">📱 QR Code do App</h2>
+                <p className="text-sm text-muted-foreground">
+                  Baixe o QR Code em diferentes tamanhos para usar em panfletos, redes sociais e telas da loja.
                 </p>
               </div>
 
-              {/* Size Selection */}
+              {/* Quick Preview */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Tamanhos Disponíveis</CardTitle>
+                  <CardTitle className="text-lg">Preview Rápido</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {[100, 300, 500, 1000].map((sizeOption) => (
-                      <div key={sizeOption} className="border rounded-lg p-4">
-                        <p className="font-medium text-center mb-3">{sizeOption}x{sizeOption}px</p>
-                        <div className="flex justify-center mb-3">
-                          <div className="bg-secondary p-2 rounded">
-                            <QRCodeDisplay size={sizeOption as 100 | 200 | 300 | 500 | 1000} showControls={false} />
-                          </div>
-                        </div>
-                        <p className="text-xs text-muted-foreground text-center">
-                          {sizeOption === 100 && 'Para redes sociais'}
-                          {sizeOption === 300 && 'Para panfletos'}
-                          {sizeOption === 500 && 'Para telas de loja'}
-                          {sizeOption === 1000 && 'Para banners grandes'}
-                        </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {/* Small - Social Media */}
+                    <div className="flex flex-col items-center space-y-3 p-4 bg-muted/30 rounded-lg">
+                      <p className="font-medium text-sm">Social Media</p>
+                      <div className="bg-secondary p-2 rounded">
+                        <QRCodeDisplay size={100} showControls={false} />
                       </div>
-                    ))}
+                      <p className="text-xs text-muted-foreground">100×100px</p>
+                    </div>
+
+                    {/* Medium - Flyers */}
+                    <div className="flex flex-col items-center space-y-3 p-4 bg-muted/30 rounded-lg">
+                      <p className="font-medium text-sm">Panfletos</p>
+                      <div className="bg-secondary p-3 rounded">
+                        <QRCodeDisplay size={300} showControls={false} />
+                      </div>
+                      <p className="text-xs text-muted-foreground">300×300px</p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Download Section */}
-              <QRCodeDisplay size={300} showControls={true} />
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Baixar QR Code</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-2">Selecione o tamanho e formato abaixo</p>
+                </CardHeader>
+                <CardContent>
+                  <QRCodeDisplay size={300} showControls={true} />
+                </CardContent>
+              </Card>
+
+              {/* Sizes Reference */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Recomendações de Uso</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex gap-4 p-3 bg-muted/30 rounded-lg">
+                      <div>
+                        <p className="font-medium text-sm">100×100px</p>
+                        <p className="text-xs text-muted-foreground mt-1">Redes sociais, stories, posts pequenos</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-4 p-3 bg-muted/30 rounded-lg">
+                      <div>
+                        <p className="font-medium text-sm">300×300px</p>
+                        <p className="text-xs text-muted-foreground mt-1">Panfletos, cardápios digitais, emails</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-4 p-3 bg-muted/30 rounded-lg">
+                      <div>
+                        <p className="font-medium text-sm">500×500px+</p>
+                        <p className="text-xs text-muted-foreground mt-1">Customize no editor - Canva, Photoshop, etc</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
         </Tabs>
