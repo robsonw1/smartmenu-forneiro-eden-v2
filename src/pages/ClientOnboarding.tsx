@@ -9,8 +9,33 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Loader2, ChevronRight } from 'lucide-react';
+import { Loader2, ChevronRight, AlertCircle } from 'lucide-react';
 import logoForneiro from '@/assets/logo-forneiro.jpg';
+import { supabase } from '@/integrations/supabase/client';
+
+// Função para gerar slug (mesma lógica da backend)
+const generateSlug = (name: string): string => {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/[^\w-]/g, '');
+};
+
+// Função para verificar se slug já existe
+const checkSlugExists = async (slug: string): Promise<boolean> => {
+  try {
+    const { data } = await supabase
+      .from('tenants')
+      .select('id')
+      .eq('slug', slug)
+      .single();
+    return !!data;
+  } catch {
+    return false;
+  }
+};
 
 const onboardingSchema = z.object({
   establishment_name: z.string().min(3, 'Nome deve ter ao menos 3 caracteres'),
@@ -81,11 +106,29 @@ export default function ClientOnboarding() {
   });
 
   const schedule = watch('schedule');
+  const establishmentName = watch('establishment_name');
+  const slug = establishmentName ? generateSlug(establishmentName) : '';
 
   const onSubmit = async (data: OnboardingFormData) => {
     setIsLoading(true);
 
     try {
+      // Gerar e validar slug
+      const slug = generateSlug(data.establishment_name);
+      
+      // Verificar se slug já existe
+      const slugExists = await checkSlugExists(slug);
+      if (slugExists) {
+        toast.error(
+          `O nome "${data.establishment_name}" já está em uso. Use um nome diferente.`,
+          {
+            icon: <AlertCircle className="w-4 h-4" />,
+          }
+        );
+        setIsLoading(false);
+        return;
+      }
+
       // Chamar Edge Function
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-tenant-onboarding`,
@@ -110,7 +153,18 @@ export default function ClientOnboarding() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Erro ao criar tenant');
+        // Se receber 409, é slug duplicado (fallback)
+        if (response.status === 409) {
+          toast.error(
+            `O nome "${data.establishment_name}" já está em uso. Use um nome diferente.`,
+            {
+              icon: <AlertCircle className="w-4 h-4" />,
+            }
+          );
+        } else {
+          throw new Error(result.error || 'Erro ao criar tenant');
+        }
+        return;
       }
 
       // Armazenar dados temporários para a página de sucesso
@@ -172,6 +226,11 @@ export default function ClientOnboarding() {
                   />
                   {errors.establishment_name && (
                     <p className="text-sm text-red-500 mt-1">{errors.establishment_name.message}</p>
+                  )}
+                  {slug && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      <span className="font-medium">URL do seu app:</span> https://<strong>{slug}</strong>.aezap.site
+                    </p>
                   )}
                 </div>
 
